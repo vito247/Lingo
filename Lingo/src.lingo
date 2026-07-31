@@ -1,0 +1,27 @@
+Var num age = 20
+Var text name = "John"
+
+Set age = 21
+
+Display "Hello"
+Display age
+
+If age more 18,
+What
+    Display "Adult"
+Display "Done"
+
+Repeat 5,
+What
+    Display "Hello"
+## comment
+## comment
+Function add -> num
+Input
+    Var num a
+    Var num b
+What
+    Throw a + b
+## comment
+Var num result = add(5, 3)
+Display result
