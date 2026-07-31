@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Lingo/Lingo.vcxproj" />
+  <Project Path="Lingo/Lingo.vcxproj" Id="692500fe-c9ac-433a-9696-71172cdef545" />
 </Solution>

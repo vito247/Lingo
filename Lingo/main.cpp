@@ -5,11 +5,14 @@
 #include <sstream>
 #include <cctype>
 #include <Windows.h>
+#include <filesystem>
 
 #include "lexer.h"
 #include "parser.h"
 #include "ast.h"
 #include "interpreter.h"
+
+namespace fs = std::filesystem;
 
 int command();
 bool addToPath(const std::string& path);
@@ -49,6 +52,9 @@ int command() {
         std::string msg[] = {
             "Available commands:",
             "help : Show this help message",
+			"clear : Clear the console",
+			"version : Show the version of the interpreter",
+			"new <directory> <filename> : Create a new lingo file in the specified directory",
             "register : Register this program to PATH, only supported on Windows",
             "run <file path> : Run a script from a file",
             "exit : Exit the interpreter"
@@ -60,6 +66,51 @@ int command() {
 
         return 1;
     }
+	if (args[0] == "clear") {
+		system("cls");
+		return 1;
+	}
+	if (args[0] == "version") {
+		std::cout << "Lingo Interpreter Version 0.1\n" << "Github: https://github.com/vito247/Lingo\n";
+		return 1;
+	}
+	if (args[0] == "new") {
+		if (args.size() < 3) {
+			std::cerr << "Error: Not enough arguments for 'new' command." << '\n' << "Usage: new <directory> <filename>\n";
+			return 1;
+		}
+		fs::path dir(args[1]);
+		fs::path filename(args[2]);
+        
+		if (filename.extension() != ".lingo") {
+			filename += ".lingo";
+		}
+
+		
+		if (!fs::exists(dir)) {
+			std::cerr << "Error: Directory does not exist: " << dir << '\n';
+			return 1;
+		}
+
+		if (!fs::is_directory(dir)) {
+			std::cerr << "Error: Path is not a directory: " << dir << '\n';
+			return 1;
+		}
+		fs::path filePath = dir / filename;
+
+        if (fs::exists(filePath)) {
+            std::cerr << "Error: File already exists: " << filePath << '\n';
+            return 1;
+        }
+		std::ofstream file(filePath);
+		if (!file) {
+			std::cerr << "Error: Could not create lingo file: " << filePath << '\n';
+			return 1;
+		}
+		file.close();
+		std::cout << "Successfully created new lingo file: " << fs::absolute(filePath) << '\n';
+		return 1;
+	}
     if (args[0] == "register") {
         std::string executableDir = getExecutableDirectory();
         if (!addToPath(executableDir)) {
@@ -70,29 +121,30 @@ int command() {
         return 1;
     }
     if (args[0] == "run") {
+
         if (args.size() < 2) {
             std::cerr
-                << "Error: No file path provided.\n";
+                << "Error: Not enough arguments for 'run' command." << '\n' << "Usage: run <file path>\n";
 
             return 1;
         }
 
-        std::string path = args[1];
+		fs::path filePath(args[1]);
         
-        if (path.substr(path.find_last_of(".") + 1) != "lingo") {
+        if (filePath.extension() != ".lingo") {
             std::cerr
                 << "Error: Unsupported file extension: "
-                << path
+                << filePath
                 << '\n';
             return 1;
         }
 
-        std::ifstream file(path);
+        std::ifstream file(filePath);
 
         if (!file.is_open()) {
             std::cerr
                 << "Error: Could not open file: "
-                << path
+                << filePath
                 << '\n';
 
             return 1;
