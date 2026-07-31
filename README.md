@@ -14,6 +14,8 @@ Supported Syntax:
   
 CLI Commands:  
 - help : Show help message  
+- clear : Clear the console
+- new [directory] [filename] : Create a new lingo file in the dirctory
 - register : Register this program to PATH, only supported on Windows  
 - run [file path] : Run a lingo file   
 - exit : Exit the interpreter  
