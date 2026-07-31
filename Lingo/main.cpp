@@ -78,6 +78,15 @@ int command() {
         }
 
         std::string path = args[1];
+        
+        if (path.substr(path.find_last_of(".") + 1) != "lingo") {
+            std::cerr
+                << "Error: Unsupported file extension: "
+                << path
+                << '\n';
+            return 1;
+        }
+
         std::ifstream file(path);
 
         if (!file.is_open()) {
