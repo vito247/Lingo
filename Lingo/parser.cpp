@@ -422,12 +422,12 @@ Parser::parseDisplay() {
 std::vector<
     std::unique_ptr<Statement>
 >
-Parser::parseWhat(
+Parser::parseDo(
     int parentIndent
 ) {
     expect(
-        TokensType::What,
-        "Expected What"
+        TokensType::Do,
+        "Expected Do"
     );
 
     if (
@@ -507,8 +507,8 @@ Parser::parseIf() {
         std::move(condition);
 
     expect(
-        TokensType::What,
-        "Expected What after If"
+        TokensType::Do,
+        "Expected Do after If"
     );
 
     if (
@@ -567,8 +567,8 @@ Parser::parseIf() {
         }
 
         expect(
-            TokensType::What,
-            "Expected What after Else"
+            TokensType::Do,
+            "Expected Do after Else"
         );
 
         if (
@@ -645,8 +645,8 @@ Parser::parseRepeat() {
         std::move(count);
 
     expect(
-        TokensType::What,
-        "Expected What after Repeat"
+        TokensType::Do,
+        "Expected Do after Repeat"
     );
 
     if (
@@ -807,11 +807,11 @@ Parser::parseFunction() {
 
     if (
         check(
-            TokensType::What
+            TokensType::Do
         )
         ) {
         function->body =
-            parseWhat(
+            parseDo(
                 functionIndent
             );
     }

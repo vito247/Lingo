@@ -163,7 +163,7 @@ void IfStatement::print(int indent) const {
     }
 
     printIndent(indent + 1);
-    std::cout << "What\n";
+    std::cout << "Do\n";
 
     for (const auto& statement : body) {
         if (statement) {
@@ -195,7 +195,7 @@ void RepeatStatement::print(int indent) const {
     }
 
     printIndent(indent + 1);
-    std::cout << "What\n";
+    std::cout << "Do\n";
 
     for (const auto& statement : body) {
         if (statement) {
@@ -230,7 +230,7 @@ void FunctionDeclaration::print(int indent) const {
     }
 
     printIndent(indent + 1);
-    std::cout << "What\n";
+    std::cout << "Do\n";
 
     for (const auto& statement : body) {
         if (statement) {

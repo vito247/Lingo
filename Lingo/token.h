@@ -24,7 +24,7 @@ enum class TokensType {
     If,
     Else,
     Repeat,
-    What,
+    Do,
 
     Function,
     Input,

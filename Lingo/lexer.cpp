@@ -221,8 +221,8 @@ TokensType Lexer::getKeywordType(
     if (word == "Input")
         return TokensType::Input;
 
-    if (word == "What")
-        return TokensType::What;
+    if (word == "Do")
+        return TokensType::Do;
 
     if (word == "Throw")
         return TokensType::Throw;
@@ -721,8 +721,8 @@ std::string TokensTypeToString(
     case TokensType::Input:
         return "Input";
 
-    case TokensType::What:
-        return "What";
+    case TokensType::Do:
+        return "Do";
 
     case TokensType::Throw:
         return "Throw";

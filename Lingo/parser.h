@@ -85,7 +85,7 @@ private:
 
     std::vector<
         std::unique_ptr<Statement>
-    > parseWhat(
+    > parseDo(
         int parentIndent
     );
 
