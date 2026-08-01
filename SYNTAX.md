@@ -1,25 +1,70 @@
 # Lingo Syntax 
 
-```Display [Object]``` : Displays object to console.  
+## Display  
+```Display [Object]``` : Displays an object to console.  
 
-```Var [type] [name] = [value]``` : Create variable and set its value.  
-```Const [type] [name] = [value]``` : Create constant and set its value.  
-```Set [Identifier] = [value]``` : Set variable value.  
+## Variable  
+```Var [type] [name] = [value]``` : Creates variable and set its value.  
+```Const [type] [name] = [value]``` : Creates constant and set its value.  
+```Set [Identifier] = [value]``` : Sets value of variable.  
 
-```If [condition],``` : If [condition] is true, run [code] within "Do" block and indent(s).    
-```Do```  
-```  [code]```  
-```Else,``` : If [condition] is false, run [code] within "Do" block and indent(s).  
-```Do```  
-```  [code]```  
+## Conditional Statements
+```
+If [condition],  
+Do  
+    [code]  
+```
+The "Do" block is executed when the [condition] is true.  
+  
+```
+Else,  
+Do  
+    [code]  
+```
+The "Do" block is executed when the [condition] is false. Required "If".  
 
-```Repeat [number]``` : Repeat code [number] times within "Do" block and indent(s).  
-```Do```  
-```  [code]```  
+## Repeat
+```
+Repeat [number]
+Do  
+    [code]
+ ```  
+The "Do" block is executed [number] times.
 
-```Function [name] -> [Return Type]``` : Create function, this function can call with its name.  
-```Input``` : "Input" block, set parameters of this function.  
-```  [Variable(s)]```  
-```Do``` : "Do" block, when this function has called, run [code].  
-```  [code]```  
-```  Throw [Object]``` : Return value of this function, it must be correct with [Return Type] of this function.  
+## Function
+```
+Function [name] -> [Return Type]  
+Input  
+    [Variable(s)]  
+Do  
+    [code]  
+    Throw [Object]
+```  
+Creates function, this function can call with its name.  
+"Input" block, set parameters of this function.  
+The "Do" block is executed when this function has called.  
+The "Throw" code returns value of this function, type of throwing value must match the [Return Type] of function.  
+
+## Examples  
+```
+Var num age = 20  
+  
+If age more 18,  
+Do  
+    Display "Adult"  
+Else,
+Do
+    Display "Not adult"
+```
+```
+Function add -> num  
+Input  
+    Var num a  
+    Var num b  
+Do  
+    Throw a + b  
+  
+Display add(5, 3)  
+```
+
+
