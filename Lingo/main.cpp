@@ -71,7 +71,7 @@ int command() {
 		return 1;
 	}
 	if (args[0] == "version") {
-		std::cout << "Lingo Interpreter Version 0.1\n" << "Github: https://github.com/vito247/Lingo\n";
+		std::cout << "Lingo CLI Interpreter Version 0.1\n" << "Github: https://github.com/vito247/Lingo\n";
 		return 1;
 	}
 	if (args[0] == "new") {
@@ -117,7 +117,7 @@ int command() {
             std::cerr << "Error: Failed to register program to PATH.\n";
             return 1;
         }
-		std::cout << "Successfully registered program to PATH.\n";
+		std::cout << "Successfully registered program to PATH.\n" << "Please restart your terminal to apply the changes." << '\n';
         return 1;
     }
     if (args[0] == "run") {
