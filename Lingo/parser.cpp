@@ -11,23 +11,22 @@ Parser::Parser(
 }
 
 const Token& Parser::current() const {
+    if (
+        position >=
+        tokens.size()
+    ) {
+        return tokens.back();
+    }
+
     return tokens[position];
 }
 
 const Token& Parser::previous() const {
-    return tokens[position - 1];
-}
-
-bool Parser::isAtEnd() const {
-    return current().type == TokensType::EndOfFile;
-}
-
-const Token& Parser::advance() {
-    if (!isAtEnd()) {
-        position++;
+    if (position == 0) {
+        return tokens[0];
     }
 
-    return previous();
+    return tokens[position - 1];
 }
 
 bool Parser::check(
@@ -43,8 +42,7 @@ bool Parser::match(
         return false;
     }
 
-    advance();
-
+    position++;
     return true;
 }
 
@@ -56,312 +54,129 @@ const Token& Parser::expect(
         throw std::runtime_error(
             message +
             " at line " +
-            std::to_string(
-                current().line
-            )
+            std::to_string(current().line)
         );
     }
 
-    return advance();
+    return tokens[position++];
 }
 
 void Parser::skipNewLines() {
     while (
-        match(
-            TokensType::NewLine
-        )
-        ) {
+        match(TokensType::NewLine)
+    ) {
     }
 }
 
-int Parser::currentIndent() const {
-    return current().indent;
+std::unique_ptr<Program> Parser::parse() {
+    auto program =
+        std::make_unique<Program>();
+
+    skipNewLines();
+
+    while (
+        !check(TokensType::EndOfFile)
+    ) {
+        program->statements.push_back(
+            parseStatement()
+        );
+
+        skipNewLines();
+    }
+
+    return program;
 }
 
-ValueType Parser::parseType() {
-    if (
-        match(
-            TokensType::Num
-        )
-        ) {
+std::unique_ptr<Statement> Parser::parseStatement() {
+    skipNewLines();
+
+    switch (current().type) {
+    case TokensType::Var:
+    case TokensType::Const:
+        return parseVariableDeclaration();
+
+    case TokensType::Set:
+        return parseAssignment();
+
+    case TokensType::Display:
+        return parseDisplay();
+
+    case TokensType::Import:
+        return parseImport();
+
+    case TokensType::If:
+        return parseIf();
+
+    case TokensType::Repeat:
+        return parseRepeat();
+
+    case TokensType::Function:
+        return parseFunction();
+
+    case TokensType::Do:
+        match(TokensType::Do);
+        skipNewLines();
+        return parseStatement();
+
+    case TokensType::Throw:
+        return parseReturn();
+
+    case TokensType::Identifier:
+        return std::make_unique<ExpressionStatement>(
+            parseExpression()
+        );
+
+    default:
+        throw std::runtime_error(
+            "Unknown statement at line " +
+            std::to_string(current().line)
+        );
+    }
+}
+
+ValueType Parser::parseValueType() {
+    if (match(TokensType::Num)) {
         return ValueType::Num;
     }
 
-    if (
-        match(
-            TokensType::Text
-        )
-        ) {
+    if (match(TokensType::Text)) {
         return ValueType::Text;
     }
 
-    if (
-        match(
-            TokensType::Bool
-        )
-        ) {
+    if (match(TokensType::Bool)) {
         return ValueType::Bool;
     }
 
-    if (
-        match(
-            TokensType::None
-        )
-        ) {
+    if (match(TokensType::None)) {
         return ValueType::None;
     }
 
     throw std::runtime_error(
         "Expected type at line " +
-        std::to_string(
-            current().line
-        )
-    );
-}
-
-std::unique_ptr<Expression>
-Parser::parseExpression() {
-    return parseComparison();
-}
-
-std::unique_ptr<Expression>
-Parser::parseComparison() {
-    auto expression =
-        parseTerm();
-
-    while (
-        check(TokensType::More) ||
-        check(TokensType::Less) ||
-        check(TokensType::Equal) ||
-        check(TokensType::NotEqual) ||
-        check(TokensType::Greater) ||
-        check(TokensType::LessEqual) ||
-        check(TokensType::GreaterEqual)
-        ) {
-        std::string op =
-            advance().value;
-
-        auto right =
-            parseTerm();
-
-        expression =
-            std::make_unique<
-            BinaryExpression
-            >(
-                op,
-                std::move(expression),
-                std::move(right)
-            );
-    }
-
-    return expression;
-}
-
-std::unique_ptr<Expression>
-Parser::parseTerm() {
-    auto expression =
-        parseFactor();
-
-    while (
-        check(TokensType::Plus) ||
-        check(TokensType::Minus)
-        ) {
-        std::string op =
-            advance().value;
-
-        auto right =
-            parseFactor();
-
-        expression =
-            std::make_unique<
-            BinaryExpression
-            >(
-                op,
-                std::move(expression),
-                std::move(right)
-            );
-    }
-
-    return expression;
-}
-
-std::unique_ptr<Expression>
-Parser::parseFactor() {
-    auto expression =
-        parsePrimary();
-
-    while (
-        check(TokensType::Multiply) ||
-        check(TokensType::Divide)
-        ) {
-        std::string op =
-            advance().value;
-
-        auto right =
-            parsePrimary();
-
-        expression =
-            std::make_unique<
-            BinaryExpression
-            >(
-                op,
-                std::move(expression),
-                std::move(right)
-            );
-    }
-
-    return expression;
-}
-
-std::unique_ptr<Expression>
-Parser::parsePrimary() {
-    if (
-        match(
-            TokensType::Number
-        )
-        ) {
-        return std::make_unique<
-            NumberLiteral
-        >(
-            std::stoi(
-                previous().value
-            )
-        );
-    }
-
-    if (
-        match(
-            TokensType::String
-        )
-        ) {
-        return std::make_unique<
-            StringLiteral
-        >(
-            previous().value
-        );
-    }
-
-    if (
-        match(
-            TokensType::True
-        )
-        ) {
-        return std::make_unique<
-            BoolLiteral
-        >(
-            true
-        );
-    }
-
-    if (
-        match(
-            TokensType::False
-        )
-        ) {
-        return std::make_unique<
-            BoolLiteral
-        >(
-            false
-        );
-    }
-
-    if (
-        match(
-            TokensType::Identifier
-        )
-        ) {
-        std::string name =
-            previous().value;
-
-        if (
-            match(
-                TokensType::LeftParen
-            )
-            ) {
-            auto call =
-                std::make_unique<
-                CallExpression
-                >(
-                    name
-                );
-
-            if (
-                !check(
-                    TokensType::RightParen
-                )
-                ) {
-                do {
-                    call->arguments.push_back(
-                        parseExpression()
-                    );
-                } while (
-                    match(
-                        TokensType::Comma
-                    )
-                    );
-            }
-
-            expect(
-                TokensType::RightParen,
-                "Expected ')' after arguments"
-            );
-
-            return call;
-        }
-
-        return std::make_unique<
-            Identifier
-        >(
-            name
-        );
-    }
-
-    if (
-        match(
-            TokensType::LeftParen
-        )
-        ) {
-        auto expression =
-            parseExpression();
-
-        expect(
-            TokensType::RightParen,
-            "Expected ')'"
-        );
-
-        return expression;
-    }
-
-    throw std::runtime_error(
-        "Expected expression at line " +
-        std::to_string(
-            current().line
-        )
+        std::to_string(current().line)
     );
 }
 
 std::unique_ptr<Statement>
 Parser::parseVariableDeclaration() {
     bool isConst =
-        match(
-            TokensType::Const
-        );
+        match(TokensType::Const);
 
     if (!isConst) {
         expect(
             TokensType::Var,
-            "Expected Var"
+            "Expected Var or Const"
         );
     }
 
     ValueType type =
-        parseType();
+        parseValueType();
 
-    std::string name =
+    const Token& name =
         expect(
             TokensType::Identifier,
             "Expected variable name"
-        ).value;
+        );
 
     expect(
         TokensType::Assign,
@@ -371,23 +186,23 @@ Parser::parseVariableDeclaration() {
     auto value =
         parseExpression();
 
-    return std::make_unique<
-        VariableDeclaration
-    >(
+    return std::make_unique<VariableDeclaration>(
         isConst,
         type,
-        name,
+        name.value,
         std::move(value)
     );
 }
 
 std::unique_ptr<Statement>
 Parser::parseAssignment() {
+    expect(
+        TokensType::Set,
+        "Expected Set"
+    );
+
     std::string name =
-        expect(
-            TokensType::Identifier,
-            "Expected identifier"
-        ).value;
+        parseNamespacedName();
 
     expect(
         TokensType::Assign,
@@ -397,9 +212,7 @@ Parser::parseAssignment() {
     auto value =
         parseExpression();
 
-    return std::make_unique<
-        AssignmentStatement
-    >(
+    return std::make_unique<AssignmentStatement>(
         name,
         std::move(value)
     );
@@ -412,64 +225,68 @@ Parser::parseDisplay() {
         "Expected Display"
     );
 
-    return std::make_unique<
-        DisplayStatement
-    >(
-        parseExpression()
+    auto expression =
+        parseExpression();
+
+    return std::make_unique<DisplayStatement>(
+        std::move(expression)
     );
 }
 
-std::vector<
-    std::unique_ptr<Statement>
->
-Parser::parseDo(
-    int parentIndent
-) {
+std::unique_ptr<Statement>
+Parser::parseImport() {
     expect(
-        TokensType::Do,
-        "Expected Do"
+        TokensType::Import,
+        "Expected Import"
     );
 
-    if (
-        check(
-            TokensType::NewLine
-        )
-        ) {
-        advance();
-    }
-
-    std::vector<
-        std::unique_ptr<Statement>
-    > body;
-
-    while (
-        !isAtEnd()
-        ) {
-        if (
-            check(
-                TokensType::NewLine
-            )
-            ) {
-            advance();
-
-            continue;
-        }
-
-        if (
-            currentIndent() <=
-            parentIndent
-            ) {
-            break;
-        }
-
-        body.push_back(
-            parseStatement()
+    const Token& path =
+        expect(
+            TokensType::String,
+            "Expected library path"
         );
 
-        skipNewLines();
+    expect(
+        TokensType::As,
+        "Expected As"
+    );
+
+    const Token& name =
+        expect(
+            TokensType::Identifier,
+            "Expected namespace name"
+        );
+
+    return std::make_unique<ImportStatement>(
+        path.value,
+        name.value
+    );
+}
+
+std::string Parser::parseNamespacedName() {
+    const Token& first =
+        expect(
+            TokensType::Identifier,
+            "Expected identifier"
+        );
+
+    std::string result =
+        first.value;
+
+    while (
+        match(TokensType::Colon)
+    ) {
+        const Token& second =
+            expect(
+                TokensType::Identifier,
+                "Expected identifier after ':'"
+            );
+
+        result += ":";
+        result += second.value;
     }
 
-    return body;
+    return result;
 }
 
 std::unique_ptr<Statement>
@@ -482,63 +299,18 @@ Parser::parseIf() {
     auto condition =
         parseExpression();
 
-    expect(
-        TokensType::Comma,
-        "Expected ',' after condition"
-    );
-
-    if (
-        check(
-            TokensType::NewLine
-        )
-        ) {
-        advance();
-    }
-
-    int indent =
-        currentIndent();
-
     auto statement =
-        std::make_unique<
-        IfStatement
-        >();
+        std::make_unique<IfStatement>(
+            std::move(condition)
+        );
 
-    statement->condition =
-        std::move(condition);
-
-    expect(
-        TokensType::Do,
-        "Expected Do after If"
-    );
-
-    if (
-        check(
-            TokensType::NewLine
-        )
-        ) {
-        advance();
-    }
+    skipNewLines();
 
     while (
-        !isAtEnd()
-        ) {
-        if (
-            check(
-                TokensType::NewLine
-            )
-            ) {
-            advance();
-
-            continue;
-        }
-
-        if (
-            currentIndent() <=
-            indent
-            ) {
-            break;
-        }
-
+        !check(TokensType::Else) &&
+        !check(TokensType::EndOfFile) &&
+        current().indent > 0
+    ) {
         statement->body.push_back(
             parseStatement()
         );
@@ -546,59 +318,13 @@ Parser::parseIf() {
         skipNewLines();
     }
 
-    if (
-        check(
-            TokensType::Else
-        )
-        ) {
-        advance();
-
-        expect(
-            TokensType::Comma,
-            "Expected ',' after Else"
-        );
-
-        if (
-            check(
-                TokensType::NewLine
-            )
-            ) {
-            advance();
-        }
-
-        expect(
-            TokensType::Do,
-            "Expected Do after Else"
-        );
-
-        if (
-            check(
-                TokensType::NewLine
-            )
-            ) {
-            advance();
-        }
+    if (match(TokensType::Else)) {
+        skipNewLines();
 
         while (
-            !isAtEnd()
-            ) {
-            if (
-                check(
-                    TokensType::NewLine
-                )
-                ) {
-                advance();
-
-                continue;
-            }
-
-            if (
-                currentIndent() <=
-                indent
-                ) {
-                break;
-            }
-
+            !check(TokensType::EndOfFile) &&
+            current().indent > 0
+        ) {
             statement->elseBody.push_back(
                 parseStatement()
             );
@@ -620,63 +346,17 @@ Parser::parseRepeat() {
     auto count =
         parseExpression();
 
-    expect(
-        TokensType::Comma,
-        "Expected ',' after Repeat"
-    );
-
-    if (
-        check(
-            TokensType::NewLine
-        )
-        ) {
-        advance();
-    }
-
-    int indent =
-        currentIndent();
-
     auto statement =
-        std::make_unique<
-        RepeatStatement
-        >();
+        std::make_unique<RepeatStatement>(
+            std::move(count)
+        );
 
-    statement->count =
-        std::move(count);
-
-    expect(
-        TokensType::Do,
-        "Expected Do after Repeat"
-    );
-
-    if (
-        check(
-            TokensType::NewLine
-        )
-        ) {
-        advance();
-    }
+    skipNewLines();
 
     while (
-        !isAtEnd()
-        ) {
-        if (
-            check(
-                TokensType::NewLine
-            )
-            ) {
-            advance();
-
-            continue;
-        }
-
-        if (
-            currentIndent() <=
-            indent
-            ) {
-            break;
-        }
-
+        !check(TokensType::EndOfFile) &&
+        current().indent > 0
+    ) {
         statement->body.push_back(
             parseStatement()
         );
@@ -687,74 +367,6 @@ Parser::parseRepeat() {
     return statement;
 }
 
-std::vector<
-    FunctionParameter
->
-Parser::parseInput(
-    int parentIndent
-) {
-    expect(
-        TokensType::Input,
-        "Expected Input"
-    );
-
-    if (
-        check(
-            TokensType::NewLine
-        )
-        ) {
-        advance();
-    }
-
-    std::vector<
-        FunctionParameter
-    > parameters;
-
-    while (
-        !isAtEnd()
-        ) {
-        if (
-            check(
-                TokensType::NewLine
-            )
-            ) {
-            advance();
-
-            continue;
-        }
-
-        if (
-            currentIndent() <=
-            parentIndent
-            ) {
-            break;
-        }
-
-        expect(
-            TokensType::Var,
-            "Expected Var in Input"
-        );
-
-        ValueType type =
-            parseType();
-
-        std::string name =
-            expect(
-                TokensType::Identifier,
-                "Expected parameter name"
-            ).value;
-
-        parameters.push_back({
-            type,
-            name
-            });
-
-        skipNewLines();
-    }
-
-    return parameters;
-}
-
 std::unique_ptr<Statement>
 Parser::parseFunction() {
     expect(
@@ -762,58 +374,71 @@ Parser::parseFunction() {
         "Expected Function"
     );
 
-    auto function =
-        std::make_unique<
-        FunctionDeclaration
-        >();
-
-    function->name =
+    const Token& name =
         expect(
             TokensType::Identifier,
             "Expected function name"
-        ).value;
+        );
 
-    expect(
-        TokensType::Arrow,
-        "Expected '->'"
-    );
+    auto function =
+        std::make_unique<FunctionDeclaration>(
+            name.value
+        );
 
-    function->returnType =
-        parseType();
-
-    if (
-        check(
-            TokensType::NewLine
-        )
-        ) {
-        advance();
-    }
-
-    int functionIndent =
-        currentIndent();
-
-    if (
-        check(
-            TokensType::Input
-        )
-        ) {
-        function->parameters =
-            parseInput(
-                functionIndent
-            );
+    // Function add -> num
+    if (match(TokensType::Arrow)) {
+        function->returnType =
+            parseValueType();
     }
 
     skipNewLines();
 
-    if (
-        check(
-            TokensType::Do
-        )
-        ) {
-        function->body =
-            parseDo(
-                functionIndent
+    // Input
+    if (match(TokensType::Input)) {
+        skipNewLines();
+
+        while (
+            !check(TokensType::EndOfFile) &&
+            current().indent > 0 &&
+            !check(TokensType::Do)
+            ) {
+            expect(
+                TokensType::Var,
+                "Expected Var in Input"
             );
+
+            ValueType type =
+                parseValueType();
+
+            const Token& parameterName =
+                expect(
+                    TokensType::Identifier,
+                    "Expected parameter name"
+                );
+
+            function->parameters.emplace_back(
+                type,
+                parameterName.value
+            );
+
+            skipNewLines();
+        }
+    }
+
+    // Do
+    if (match(TokensType::Do)) {
+        skipNewLines();
+    }
+
+    while (
+        !check(TokensType::EndOfFile) &&
+        current().indent > 0
+        ) {
+        function->body.push_back(
+            parseStatement()
+        );
+
+        skipNewLines();
     }
 
     return function;
@@ -826,104 +451,200 @@ Parser::parseReturn() {
         "Expected Throw"
     );
 
-    return std::make_unique<
-        ReturnStatement
-    >(
-        parseExpression()
+    auto value =
+        parseExpression();
+
+    return std::make_unique<ReturnStatement>(
+        std::move(value)
     );
 }
 
-std::unique_ptr<Statement>
-Parser::parseStatement() {
-    skipNewLines();
+std::unique_ptr<Expression>
+Parser::parseExpression() {
+    return parseComparison();
+}
 
+std::unique_ptr<Expression>
+Parser::parseComparison() {
+    auto expression =
+        parseTerm();
+
+    while (
+        check(TokensType::More) ||
+        check(TokensType::Less) ||
+        check(TokensType::Equal) ||
+        check(TokensType::NotEqual) ||
+        check(TokensType::Greater) ||
+        check(TokensType::LessEqual) ||
+        check(TokensType::GreaterEqual)
+    ) {
+        std::string op =
+            current().value;
+
+        position++;
+
+        auto right =
+            parseTerm();
+
+        expression =
+            std::make_unique<BinaryExpression>(
+                std::move(expression),
+                op,
+                std::move(right)
+            );
+    }
+
+    return expression;
+}
+
+std::unique_ptr<Expression>
+Parser::parseTerm() {
+    auto expression =
+        parseFactor();
+
+    while (
+        check(TokensType::Plus) ||
+        check(TokensType::Minus)
+    ) {
+        std::string op =
+            current().value;
+
+        position++;
+
+        auto right =
+            parseFactor();
+
+        expression =
+            std::make_unique<BinaryExpression>(
+                std::move(expression),
+                op,
+                std::move(right)
+            );
+    }
+
+    return expression;
+}
+
+std::unique_ptr<Expression>
+Parser::parseFactor() {
+    auto expression =
+        parsePrimary();
+
+    while (
+        check(TokensType::Multiply) ||
+        check(TokensType::Divide)
+    ) {
+        std::string op =
+            current().value;
+
+        position++;
+
+        auto right =
+            parsePrimary();
+
+        expression =
+            std::make_unique<BinaryExpression>(
+                std::move(expression),
+                op,
+                std::move(right)
+            );
+    }
+
+    return expression;
+}
+
+std::unique_ptr<Expression>
+Parser::parsePrimary() {
     if (
-        check(
-            TokensType::Var
-        ) ||
-        check(
-            TokensType::Const
-        )
-        ) {
-        return parseVariableDeclaration();
+        match(TokensType::Number)
+    ) {
+        return std::make_unique<NumberLiteral>(
+            previous().value
+        );
     }
 
     if (
-        check(
-            TokensType::Display
-        )
-        ) {
-        return parseDisplay();
+        match(TokensType::String)
+    ) {
+        return std::make_unique<StringLiteral>(
+            previous().value
+        );
     }
 
     if (
-        check(
-            TokensType::Set
-        )
-        ) {
-        advance();
-
-        return parseAssignment();
+        match(TokensType::True)
+    ) {
+        return std::make_unique<BoolLiteral>(
+            true
+        );
     }
 
     if (
-        check(
-            TokensType::If
-        )
-        ) {
-        return parseIf();
+        match(TokensType::False)
+    ) {
+        return std::make_unique<BoolLiteral>(
+            false
+        );
     }
 
     if (
-        check(
-            TokensType::Repeat
-        )
-        ) {
-        return parseRepeat();
+        check(TokensType::Identifier)
+    ) {
+        return parseIdentifierExpression();
     }
 
     if (
-        check(
-            TokensType::Function
-        )
-        ) {
-        return parseFunction();
-    }
+        match(TokensType::LeftParen)
+    ) {
+        auto expression =
+            parseExpression();
 
-    if (
-        check(
-            TokensType::Throw
-        )
-        ) {
-        return parseReturn();
+        expect(
+            TokensType::RightParen,
+            "Expected ')'"
+        );
+
+        return expression;
     }
 
     throw std::runtime_error(
-        "Unknown statement at line " +
-        std::to_string(
-            current().line
-        )
+        "Expected expression at line " +
+        std::to_string(current().line)
     );
 }
 
-std::unique_ptr<Program>
-Parser::parse() {
-    auto program =
-        std::make_unique<
-        Program
-        >();
+std::unique_ptr<Expression>
+Parser::parseIdentifierExpression() {
+    std::string name =
+        parseNamespacedName();
 
-    skipNewLines();
+    if (
+        match(TokensType::LeftParen)
+    ) {
+        auto call =
+            std::make_unique<CallExpression>(
+                name
+            );
 
-    while (
-        !isAtEnd()
-        ) {
-        program->statements.push_back(
-            parseStatement()
+        if (!check(TokensType::RightParen)) {
+            do {
+                call->arguments.push_back(
+                    parseExpression()
+                );
+            } while (
+                match(TokensType::Comma)
+            );
+        }
+
+        expect(
+            TokensType::RightParen,
+            "Expected ')'"
         );
 
-        skipNewLines();
+        return call;
     }
 
-    return program;
+    return std::make_unique<Identifier>(
+        name
+    );
 }

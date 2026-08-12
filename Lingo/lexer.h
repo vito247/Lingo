@@ -2,16 +2,13 @@
 
 #include <string>
 #include <vector>
+#include <cstddef>
 
 #include "token.h"
 
 class Lexer {
 public:
-    explicit Lexer(
-        const std::string& source
-    );
-
-    Token nextToken();
+    explicit Lexer(const std::string& src);
 
     std::vector<Token> tokenize();
 
@@ -19,27 +16,20 @@ private:
     std::string source;
 
     size_t position = 0;
-
     int line = 1;
-
     bool atLineStart = true;
 
     char peek() const;
-
     char peekNext() const;
 
     void advance();
-
     void skipSpaces();
-
     void skipComment();
 
     int readIndent();
 
     std::string readNumber();
-
     std::string readIdentifier();
-
     std::string readString();
 
     TokensType getKeywordType(
@@ -51,6 +41,8 @@ private:
         const std::string& value,
         int indent
     );
+
+    Token nextToken();
 };
 
 std::string TokensTypeToString(

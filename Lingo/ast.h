@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 enum class ValueType {
@@ -12,159 +11,185 @@ enum class ValueType {
     None
 };
 
-struct ASTNode {
-    virtual ~ASTNode() = default;
-
-    virtual void print(
-        int indent = 0
-    ) const = 0;
+class Expression {
+public:
+    virtual ~Expression() = default;
 };
 
-struct Expression : ASTNode {
+class Statement {
+public:
+    virtual ~Statement() = default;
 };
 
-struct Statement : ASTNode {
+class Program {
+public:
+    std::vector<std::unique_ptr<Statement>> statements;
 };
 
-struct Program : ASTNode {
-    std::vector<
-        std::unique_ptr<Statement>
-    > statements;
+/*
+    Literals
+*/
 
-    void print(
-        int indent = 0
-    ) const override;
-};
-
-struct NumberLiteral : Expression {
-    int value;
+class NumberLiteral : public Expression {
+public:
+    std::string value;
 
     explicit NumberLiteral(
-        int value
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+        const std::string& value
+    )
+        : value(value) {
+    }
 };
 
-struct StringLiteral : Expression {
+class StringLiteral : public Expression {
+public:
     std::string value;
 
     explicit StringLiteral(
-        std::string value
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+        const std::string& value
+    )
+        : value(value) {
+    }
 };
 
-struct BoolLiteral : Expression {
+class BoolLiteral : public Expression {
+public:
     bool value;
 
     explicit BoolLiteral(
         bool value
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+    )
+        : value(value) {
+    }
 };
 
-struct Identifier : Expression {
+class Identifier : public Expression {
+public:
     std::string name;
 
     explicit Identifier(
-        std::string name
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+        const std::string& name
+    )
+        : name(name) {
+    }
 };
 
-struct BinaryExpression : Expression {
-    std::string op;
+/*
+    Binary expression
+*/
 
+class BinaryExpression : public Expression {
+public:
     std::unique_ptr<Expression> left;
+    std::string op;
     std::unique_ptr<Expression> right;
 
     BinaryExpression(
-        std::string op,
         std::unique_ptr<Expression> left,
+        const std::string& op,
         std::unique_ptr<Expression> right
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+    )
+        : left(std::move(left)),
+        op(op),
+        right(std::move(right)) {
+    }
 };
 
-struct CallExpression : Expression {
+/*
+    Function call
+*/
+
+class CallExpression : public Expression {
+public:
     std::string name;
 
     std::vector<
         std::unique_ptr<Expression>
     > arguments;
 
-    explicit CallExpression(
-        std::string name
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+    CallExpression(
+        const std::string& name
+    )
+        : name(name) {
+    }
 };
 
-struct VariableDeclaration : Statement {
+/*
+    Statements
+*/
+
+class ExpressionStatement : public Statement {
+public:
+    std::unique_ptr<Expression> expression;
+
+    explicit ExpressionStatement(
+        std::unique_ptr<Expression> expression
+    )
+        : expression(std::move(expression)) {
+    }
+};
+
+class DisplayStatement : public Statement {
+public:
+    std::unique_ptr<Expression> expression;
+
+    explicit DisplayStatement(
+        std::unique_ptr<Expression> expression
+    )
+        : expression(std::move(expression)) {
+    }
+};
+
+class VariableDeclaration : public Statement {
+public:
     bool isConst;
     ValueType type;
-
     std::string name;
-
     std::unique_ptr<Expression> value;
 
     VariableDeclaration(
         bool isConst,
         ValueType type,
-        std::string name,
+        const std::string& name,
         std::unique_ptr<Expression> value
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+    )
+        : isConst(isConst),
+        type(type),
+        name(name),
+        value(std::move(value)) {
+    }
 };
 
-struct AssignmentStatement : Statement {
+class AssignmentStatement : public Statement {
+public:
     std::string name;
-
     std::unique_ptr<Expression> value;
 
     AssignmentStatement(
-        std::string name,
+        const std::string& name,
         std::unique_ptr<Expression> value
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+    )
+        : name(name),
+        value(std::move(value)) {
+    }
 };
 
-struct DisplayStatement : Statement {
-    std::unique_ptr<Expression> expression;
+class ImportStatement : public Statement {
+public:
+    std::string path;
+    std::string name;
 
-    explicit DisplayStatement(
-        std::unique_ptr<Expression> expression
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+    ImportStatement(
+        const std::string& path,
+        const std::string& name
+    )
+        : path(path),
+        name(name) {
+    }
 };
 
-struct IfStatement : Statement {
+class IfStatement : public Statement {
+public:
     std::unique_ptr<Expression> condition;
 
     std::vector<
@@ -175,66 +200,69 @@ struct IfStatement : Statement {
         std::unique_ptr<Statement>
     > elseBody;
 
-    void print(
-        int indent = 0
-    ) const override;
+    explicit IfStatement(
+        std::unique_ptr<Expression> condition
+    )
+        : condition(std::move(condition)) {
+    }
 };
 
-struct RepeatStatement : Statement {
+class RepeatStatement : public Statement {
+public:
     std::unique_ptr<Expression> count;
 
     std::vector<
         std::unique_ptr<Statement>
     > body;
 
-    void print(
-        int indent = 0
-    ) const override;
+    explicit RepeatStatement(
+        std::unique_ptr<Expression> count
+    )
+        : count(std::move(count)) {
+    }
 };
 
-struct ReturnStatement : Statement {
-    std::unique_ptr<Expression> value;
-
-    explicit ReturnStatement(
-        std::unique_ptr<Expression> value
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
-};
-
-struct FunctionParameter {
+class Parameter {
+public:
     ValueType type;
     std::string name;
+
+    Parameter(
+        ValueType type,
+        const std::string& name
+    )
+        : type(type),
+        name(name) {
+    }
 };
 
-struct FunctionDeclaration : Statement {
+class FunctionDeclaration : public Statement {
+public:
     std::string name;
 
-    ValueType returnType;
+    std::vector<Parameter> parameters;
 
-    std::vector<
-        FunctionParameter
-    > parameters;
+    ValueType returnType;
 
     std::vector<
         std::unique_ptr<Statement>
     > body;
 
-    void print(
-        int indent = 0
-    ) const override;
+    explicit FunctionDeclaration(
+        const std::string& name
+    )
+        : name(name),
+        returnType(ValueType::None) {
+    }
 };
 
-struct ExpressionStatement : Statement {
-    std::unique_ptr<Expression> expression;
+class ReturnStatement : public Statement {
+public:
+    std::unique_ptr<Expression> value;
 
-    explicit ExpressionStatement(
-        std::unique_ptr<Expression> expression
-    );
-
-    void print(
-        int indent = 0
-    ) const override;
+    explicit ReturnStatement(
+        std::unique_ptr<Expression> value
+    )
+        : value(std::move(value)) {
+    }
 };

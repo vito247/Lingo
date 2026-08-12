@@ -6,3 +6,4 @@ lingo-release-win/
 *.user
 *.suo
 *.lingo
+*.llib

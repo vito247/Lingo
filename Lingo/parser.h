@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 #include "token.h"
 #include "ast.h"
@@ -16,24 +16,13 @@ public:
 
 private:
     const std::vector<Token>& tokens;
-
     size_t position = 0;
 
     const Token& current() const;
-
     const Token& previous() const;
 
-    bool isAtEnd() const;
-
-    const Token& advance();
-
-    bool check(
-        TokensType type
-    ) const;
-
-    bool match(
-        TokensType type
-    );
+    bool check(TokensType type) const;
+    bool match(TokensType type);
 
     const Token& expect(
         TokensType type,
@@ -42,58 +31,37 @@ private:
 
     void skipNewLines();
 
-    ValueType parseType();
+    std::unique_ptr<Statement> parseStatement();
 
-    std::unique_ptr<Expression>
-        parseExpression();
+    std::unique_ptr<Statement> parseVariableDeclaration();
 
-    std::unique_ptr<Expression>
-        parseComparison();
+    std::unique_ptr<Statement> parseAssignment();
 
-    std::unique_ptr<Expression>
-        parseTerm();
+    std::unique_ptr<Statement> parseDisplay();
 
-    std::unique_ptr<Expression>
-        parseFactor();
+    std::unique_ptr<Statement> parseImport();
 
-    std::unique_ptr<Expression>
-        parsePrimary();
+    std::unique_ptr<Statement> parseIf();
 
-    std::unique_ptr<Statement>
-        parseStatement();
+    std::unique_ptr<Statement> parseRepeat();
 
-    std::unique_ptr<Statement>
-        parseVariableDeclaration();
+    std::unique_ptr<Statement> parseFunction();
 
-    std::unique_ptr<Statement>
-        parseAssignment();
+    std::unique_ptr<Statement> parseReturn();
 
-    std::unique_ptr<Statement>
-        parseDisplay();
+    std::unique_ptr<Expression> parseExpression();
 
-    std::unique_ptr<Statement>
-        parseIf();
+    std::unique_ptr<Expression> parseComparison();
 
-    std::unique_ptr<Statement>
-        parseRepeat();
+    std::unique_ptr<Expression> parseTerm();
 
-    std::unique_ptr<Statement>
-        parseFunction();
+    std::unique_ptr<Expression> parseFactor();
 
-    std::unique_ptr<Statement>
-        parseReturn();
+    std::unique_ptr<Expression> parsePrimary();
 
-    std::vector<
-        std::unique_ptr<Statement>
-    > parseDo(
-        int parentIndent
-    );
+    std::unique_ptr<Expression> parseIdentifierExpression();
 
-    std::vector<
-        FunctionParameter
-    > parseInput(
-        int parentIndent
-    );
+    ValueType parseValueType();
 
-    int currentIndent() const;
+    std::string parseNamespacedName();
 };

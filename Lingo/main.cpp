@@ -121,57 +121,71 @@ int command() {
         return 1;
     }
     if (args[0] == "run") {
+        try {
+            if (args.size() < 2) {
+                std::cerr
+                    << "Error: Not enough arguments for 'run' command." << '\n' << "Usage: run <file path>\n";
 
-        if (args.size() < 2) {
-            std::cerr
-                << "Error: Not enough arguments for 'run' command." << '\n' << "Usage: run <file path>\n";
+                return 1;
+            }
+
+            fs::path filePath(args[1]);
+
+            if (filePath.extension() != ".lingo") {
+                std::cerr
+                    << "Error: Unsupported file extension: "
+                    << filePath
+                    << '\n';
+                return 1;
+            }
+
+            std::ifstream file(filePath);
+
+            if (!file.is_open()) {
+                std::cerr
+                    << "Error: Could not open file: "
+                    << filePath
+                    << '\n';
+
+                return 1;
+            }
+
+            std::string source(
+                (std::istreambuf_iterator<char>(file)),
+                std::istreambuf_iterator<char>()
+            );
+
+            Lexer lexer(source);
+
+            auto tokens =
+                lexer.tokenize();
+
+            Parser parser(tokens);
+
+            auto ast =
+                parser.parse();
+
+            Interpreter interpreter;
+
+            interpreter.execute(
+                ast.get()
+            );
 
             return 1;
         }
-
-		fs::path filePath(args[1]);
-        
-        if (filePath.extension() != ".lingo") {
-            std::cerr
-                << "Error: Unsupported file extension: "
-                << filePath
-                << '\n';
-            return 1;
-        }
-
-        std::ifstream file(filePath);
-
-        if (!file.is_open()) {
-            std::cerr
-                << "Error: Could not open file: "
-                << filePath
-                << '\n';
-
-            return 1;
-        }
-
-        std::string source(
-            (std::istreambuf_iterator<char>(file)),
-            std::istreambuf_iterator<char>()
-        );
-
-        Lexer lexer(source);
-
-        auto tokens =
-            lexer.tokenize();
-
-        Parser parser(tokens);
-
-        auto ast =
-            parser.parse();
-
-        Interpreter interpreter;
-
-        interpreter.execute(
-            ast.get()
-        );
-
-        return 1;
+		catch (const std::exception& e) {
+			std::cerr
+				<< "Error: "
+				<< e.what()
+				<< '\n';
+			return 1;
+		}
+		catch (...) {
+			std::cerr
+				<< "Error: An unknown error occurred while running the lingo file."
+				<< '\n';
+			return 1;
+		}
     }
 
     std::cerr

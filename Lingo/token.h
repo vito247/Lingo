@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 
 enum class TokensType {
     Number,
@@ -29,6 +30,10 @@ enum class TokensType {
     Function,
     Input,
     Throw,
+
+    Import,
+    As,
+    Colon,
 
     Assign,
     Arrow,

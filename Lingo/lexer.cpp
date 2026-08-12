@@ -1,11 +1,10 @@
 #include "lexer.h"
 
 #include <cctype>
+#include <type_traits>
 
-Lexer::Lexer(
-    const std::string& source
-)
-    : source(source) {
+Lexer::Lexer(const std::string& src)
+    : source(src) {
 }
 
 char Lexer::peek() const {
@@ -34,18 +33,21 @@ char Lexer::peekNext() const {
 
 void Lexer::advance() {
     if (
-        position <
+        position >=
         source.size()
         ) {
-        if (
-            source[position] == '\n'
-            ) {
-            line++;
-            atLineStart = true;
-        }
-
-        position++;
+        return;
     }
+
+    if (
+        source[position] == '\n'
+        ) {
+        line++;
+
+        atLineStart = true;
+    }
+
+    position++;
 }
 
 void Lexer::skipSpaces() {
@@ -101,16 +103,29 @@ int Lexer::readIndent() {
 std::string Lexer::readNumber() {
     std::string result;
 
-    while (
-        std::isdigit(
-            static_cast<unsigned char>(
-                peek()
-                )
-        )
-        ) {
-        result += peek();
+    bool hasDot = false;
 
-        advance();
+    while (true) {
+        char c = peek();
+
+        if (
+            std::isdigit(
+                static_cast<unsigned char>(c)
+            )
+            ) {
+            result += c;
+            advance();
+            continue;
+        }
+
+        if (c == '.' && !hasDot) {
+            hasDot = true;
+            result += c;
+            advance();
+            continue;
+        }
+
+        break;
     }
 
     return result;
@@ -138,6 +153,7 @@ std::string Lexer::readIdentifier() {
 std::string Lexer::readString() {
     std::string result;
 
+    // Skip opening quote.
     advance();
 
     while (
@@ -149,7 +165,8 @@ std::string Lexer::readString() {
             ) {
             advance();
 
-            char escaped = peek();
+            char escaped =
+                peek();
 
             if (
                 escaped == 'n'
@@ -185,6 +202,7 @@ std::string Lexer::readString() {
         advance();
     }
 
+    // Skip closing quote.
     if (
         peek() == '"'
         ) {
@@ -197,65 +215,137 @@ std::string Lexer::readString() {
 TokensType Lexer::getKeywordType(
     const std::string& word
 ) {
-    if (word == "Var")
+    if (
+        word == "Var"
+        ) {
         return TokensType::Var;
+    }
 
-    if (word == "Const")
+    if (
+        word == "Const"
+        ) {
         return TokensType::Const;
+    }
 
-    if (word == "num")
+    if (
+        word == "num"
+        ) {
         return TokensType::Num;
+    }
 
-    if (word == "text")
+    if (
+        word == "text"
+        ) {
         return TokensType::Text;
+    }
 
-    if (word == "bool")
+    if (
+        word == "bool"
+        ) {
         return TokensType::Bool;
+    }
 
-    if (word == "none")
+    if (
+        word == "none"
+        ) {
         return TokensType::None;
+    }
 
-    if (word == "Function")
+    if (
+        word == "Function"
+        ) {
         return TokensType::Function;
+    }
 
-    if (word == "Input")
+    if (
+        word == "Input"
+        ) {
         return TokensType::Input;
+    }
 
-    if (word == "Do")
+    if (
+        word == "Do"
+        ) {
         return TokensType::Do;
+    }
 
-    if (word == "Throw")
+    if (
+        word == "Throw"
+        ) {
         return TokensType::Throw;
+    }
 
-    if (word == "Display")
+    if (
+        word == "Display"
+        ) {
         return TokensType::Display;
+    }
 
-    if (word == "Set")
+    if (
+        word == "Set"
+        ) {
         return TokensType::Set;
+    }
 
-    if (word == "If")
+    if (
+        word == "If"
+        ) {
         return TokensType::If;
+    }
 
-    if (word == "Else")
+    if (
+        word == "Else"
+        ) {
         return TokensType::Else;
+    }
 
-    if (word == "Repeat")
+    if (
+        word == "Repeat"
+        ) {
         return TokensType::Repeat;
+    }
 
-    if (word == "more")
+    if (
+        word == "more"
+        ) {
         return TokensType::More;
+    }
 
-    if (word == "less")
+    if (
+        word == "less"
+        ) {
         return TokensType::Less;
+    }
 
-    if (word == "eq")
+    if (
+        word == "eq"
+        ) {
         return TokensType::Equal;
+    }
 
-    if (word == "true")
+    if (
+        word == "true"
+        ) {
         return TokensType::True;
+    }
 
-    if (word == "false")
+    if (
+        word == "false"
+        ) {
         return TokensType::False;
+    }
+
+    if (
+        word == "Import"
+        ) {
+        return TokensType::Import;
+    }
+
+    if (
+        word == "As"
+        ) {
+        return TokensType::As;
+    }
 
     return TokensType::Identifier;
 }
@@ -265,12 +355,12 @@ Token Lexer::makeToken(
     const std::string& value,
     int indent
 ) {
-    return {
+    return Token(
         type,
         value,
         line,
         indent
-    };
+    );
 }
 
 Token Lexer::nextToken() {
@@ -285,6 +375,10 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Handle indentation and comments
+        at the beginning of a line.
+    */
     if (
         atLineStart
         ) {
@@ -293,6 +387,9 @@ Token Lexer::nextToken() {
 
         atLineStart = false;
 
+        /*
+            Empty line.
+        */
         if (
             peek() == '\n'
             ) {
@@ -305,6 +402,9 @@ Token Lexer::nextToken() {
             );
         }
 
+        /*
+            Comment-only line.
+        */
         if (
             peek() == '#' &&
             peekNext() == '#'
@@ -322,9 +422,20 @@ Token Lexer::nextToken() {
                     indent
                 );
             }
+
+            if (
+                peek() == '\0'
+                ) {
+                return makeToken(
+                    TokensType::EndOfFile,
+                    "",
+                    indent
+                );
+            }
         }
 
-        char c = peek();
+        char c =
+            peek();
 
         if (
             c == '\0'
@@ -336,9 +447,15 @@ Token Lexer::nextToken() {
             );
         }
 
+        /*
+            Tokens that can appear
+            immediately after indentation.
+        */
         if (
             std::isdigit(
-                static_cast<unsigned char>(c)
+                static_cast<unsigned char>(
+                    c
+                    )
             )
             ) {
             return makeToken(
@@ -350,7 +467,9 @@ Token Lexer::nextToken() {
 
         if (
             std::isalpha(
-                static_cast<unsigned char>(c)
+                static_cast<unsigned char>(
+                    c
+                    )
             ) ||
             c == '_'
             ) {
@@ -375,9 +494,13 @@ Token Lexer::nextToken() {
         }
     }
 
+    /*
+        Ignore spaces between tokens.
+    */
     skipSpaces();
 
-    char c = peek();
+    char c =
+        peek();
 
     if (
         c == '\0'
@@ -389,6 +512,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        New line.
+    */
     if (
         c == '\n'
         ) {
@@ -403,6 +529,9 @@ Token Lexer::nextToken() {
 
     int indent = 0;
 
+    /*
+        String.
+    */
     if (
         c == '"'
         ) {
@@ -413,9 +542,14 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Number.
+    */
     if (
         std::isdigit(
-            static_cast<unsigned char>(c)
+            static_cast<unsigned char>(
+                c
+                )
         )
         ) {
         return makeToken(
@@ -425,9 +559,14 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Identifier / keyword.
+    */
     if (
         std::isalpha(
-            static_cast<unsigned char>(c)
+            static_cast<unsigned char>(
+                c
+                )
         ) ||
         c == '_'
         ) {
@@ -441,6 +580,29 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Namespace separator.
+
+        Example:
+
+            math:add()
+            math:VERSION
+    */
+    if (
+        c == ':'
+        ) {
+        advance();
+
+        return makeToken(
+            TokensType::Colon,
+            ":",
+            indent
+        );
+    }
+
+    /*
+        Arrow.
+    */
     if (
         c == '-' &&
         peekNext() == '>'
@@ -455,6 +617,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Assignment / equality.
+    */
     if (
         c == '='
         ) {
@@ -479,6 +644,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Not equal.
+    */
     if (
         c == '!'
         ) {
@@ -495,8 +663,17 @@ Token Lexer::nextToken() {
                 indent
             );
         }
+
+        return makeToken(
+            TokensType::Unknown,
+            "!",
+            indent
+        );
     }
 
+    /*
+        Greater / greater equal.
+    */
     if (
         c == '>'
         ) {
@@ -521,6 +698,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Less / less equal.
+    */
     if (
         c == '<'
         ) {
@@ -545,6 +725,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Plus.
+    */
     if (
         c == '+'
         ) {
@@ -557,6 +740,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Minus.
+    */
     if (
         c == '-'
         ) {
@@ -569,6 +755,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Multiply.
+    */
     if (
         c == '*'
         ) {
@@ -581,6 +770,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Divide.
+    */
     if (
         c == '/'
         ) {
@@ -593,6 +785,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Left parenthesis.
+    */
     if (
         c == '('
         ) {
@@ -605,6 +800,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Right parenthesis.
+    */
     if (
         c == ')'
         ) {
@@ -617,6 +815,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Left bracket.
+    */
     if (
         c == '['
         ) {
@@ -629,6 +830,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Right bracket.
+    */
     if (
         c == ']'
         ) {
@@ -641,6 +845,9 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Comma.
+    */
     if (
         c == ','
         ) {
@@ -653,11 +860,17 @@ Token Lexer::nextToken() {
         );
     }
 
+    /*
+        Unknown character.
+    */
     advance();
 
     return makeToken(
         TokensType::Unknown,
-        std::string(1, c),
+        std::string(
+            1,
+            c
+        ),
         indent
     );
 }
@@ -688,14 +901,20 @@ std::string TokensTypeToString(
     TokensType type
 ) {
     switch (type) {
-    case TokensType::Identifier:
-        return "Identifier";
-
     case TokensType::Number:
         return "Number";
 
     case TokensType::String:
         return "String";
+
+    case TokensType::True:
+        return "True";
+
+    case TokensType::False:
+        return "False";
+
+    case TokensType::Identifier:
+        return "Identifier";
 
     case TokensType::Var:
         return "Var";
@@ -715,18 +934,6 @@ std::string TokensTypeToString(
     case TokensType::None:
         return "None";
 
-    case TokensType::Function:
-        return "Function";
-
-    case TokensType::Input:
-        return "Input";
-
-    case TokensType::Do:
-        return "Do";
-
-    case TokensType::Throw:
-        return "Throw";
-
     case TokensType::Display:
         return "Display";
 
@@ -742,20 +949,32 @@ std::string TokensTypeToString(
     case TokensType::Repeat:
         return "Repeat";
 
-    case TokensType::More:
-        return "More";
+    case TokensType::Do:
+        return "Do";
 
-    case TokensType::Less:
-        return "Less";
+    case TokensType::Function:
+        return "Function";
 
-    case TokensType::Equal:
-        return "Equal";
+    case TokensType::Input:
+        return "Input";
 
-    case TokensType::True:
-        return "True";
+    case TokensType::Throw:
+        return "Throw";
 
-    case TokensType::False:
-        return "False";
+    case TokensType::Import:
+        return "Import";
+
+    case TokensType::As:
+        return "As";
+
+    case TokensType::Colon:
+        return "Colon";
+
+    case TokensType::Assign:
+        return "Assign";
+
+    case TokensType::Arrow:
+        return "Arrow";
 
     case TokensType::Plus:
         return "Plus";
@@ -769,11 +988,14 @@ std::string TokensTypeToString(
     case TokensType::Divide:
         return "Divide";
 
-    case TokensType::Arrow:
-        return "Arrow";
+    case TokensType::More:
+        return "More";
 
-    case TokensType::Assign:
-        return "Assign";
+    case TokensType::Less:
+        return "Less";
+
+    case TokensType::Equal:
+        return "Equal";
 
     case TokensType::NotEqual:
         return "NotEqual";

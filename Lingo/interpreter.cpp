@@ -1,9 +1,16 @@
 #include "interpreter.h"
+#include "lexer.h"
+#include "parser.h"
 
+#include <fstream>
 #include <iostream>
+#include <filesystem>
 #include <stdexcept>
-#include <variant>
 #include <utility>
+#include <variant>
+#include <type_traits>
+#include <string>
+#include <iterator>
 
 class ReturnException {
 public:
@@ -14,8 +21,7 @@ public:
     }
 };
 
-Interpreter::Interpreter()
-{
+Interpreter::Interpreter() {
 }
 
 void Interpreter::execute(
@@ -32,7 +38,7 @@ void Interpreter::execute(
         program->statements
         ) {
         if (
-            auto function =
+            auto* function =
             dynamic_cast<FunctionDeclaration*>(
                 statement.get()
                 )
@@ -71,98 +77,88 @@ void Interpreter::executeStatement(
     }
 
     if (
-        auto display =
+        auto* display =
         dynamic_cast<DisplayStatement*>(
             statement
             )
         ) {
-        executeDisplay(
-            display
-        );
-
+        executeDisplay(display);
         return;
     }
 
     if (
-        auto variable =
+        auto* importStatement =
+        dynamic_cast<ImportStatement*>(
+            statement
+            )
+        ) {
+        executeImport(importStatement);
+        return;
+    }
+
+    if (
+        auto* variable =
         dynamic_cast<VariableDeclaration*>(
             statement
             )
         ) {
-        executeVariableDeclaration(
-            variable
-        );
-
+        executeVariableDeclaration(variable);
         return;
     }
 
     if (
-        auto assignment =
+        auto* assignment =
         dynamic_cast<AssignmentStatement*>(
             statement
             )
         ) {
-        executeAssignment(
-            assignment
-        );
-
+        executeAssignment(assignment);
         return;
     }
 
     if (
-        auto ifStatement =
+        auto* ifStatement =
         dynamic_cast<IfStatement*>(
             statement
             )
         ) {
-        executeIf(
-            ifStatement
-        );
-
+        executeIf(ifStatement);
         return;
     }
 
     if (
-        auto repeat =
+        auto* repeat =
         dynamic_cast<RepeatStatement*>(
             statement
             )
         ) {
-        executeRepeat(
-            repeat
-        );
 
+        executeRepeat(repeat);
         return;
     }
 
     if (
-        auto function =
+        auto* function =
         dynamic_cast<FunctionDeclaration*>(
             statement
             )
         ) {
-        executeFunctionDeclaration(
-            function
-        );
-
+        executeFunctionDeclaration(function);
         return;
     }
 
     if (
-        auto returnStatement =
+        auto* returnStatement =
         dynamic_cast<ReturnStatement*>(
             statement
             )
         ) {
-        executeReturn(
-            returnStatement
-        );
-
+        executeReturn(returnStatement);
         return;
     }
 
     if (
-        auto expression =
+        auto* expression =
         dynamic_cast<ExpressionStatement*>(
             statement
             )
@@ -176,6 +172,139 @@ void Interpreter::executeStatement(
 
     throw std::runtime_error(
         "Unknown statement"
+    );
+}
+
+void Interpreter::executeImport(
+    ImportStatement* statement
+) {
+    if (!statement) {
+        throw std::runtime_error(
+            "Import statement is null"
+        );
+    }
+
+    loadLibrary(
+        statement->name,
+        statement->path
+    );
+}
+
+void Interpreter::loadLibrary(
+    const std::string& namespaceName,
+    const std::string& libraryPath
+) {
+    std::filesystem::path path(
+        libraryPath
+    );
+
+    if (!std::filesystem::exists(path)) {
+        throw std::runtime_error(
+            "Library not found: " +
+            path.string()
+        );
+    }
+
+    std::ifstream file(path);
+
+    if (!file.is_open()) {
+        throw std::runtime_error(
+            "Could not open library: " +
+            path.string()
+        );
+    }
+
+    std::string source(
+        (std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>()
+    );
+
+    Lexer lexer(source);
+
+    auto tokens =
+        lexer.tokenize();
+
+    Parser parser(tokens);
+
+    auto ast =
+        parser.parse();
+
+    if (!ast) {
+        throw std::runtime_error(
+            "Failed to parse library: " +
+            path.string()
+        );
+    }
+
+    if (
+        libraries.find(namespaceName) !=
+        libraries.end()
+        ) {
+        throw std::runtime_error(
+            "Library already imported: " +
+            namespaceName
+        );
+    }
+
+    auto library =
+        std::make_unique<Library>();
+
+    library->program =
+        std::move(ast);
+
+    Library* libraryPtr =
+        library.get();
+
+    libraries[
+        namespaceName
+    ] = std::move(library);
+
+    for (
+        const auto& statement :
+        libraryPtr->program->statements
+        ) {
+        registerLibraryStatement(
+            namespaceName,
+            statement.get()
+        );
+    }
+}
+
+void Interpreter::registerLibraryStatement(
+    const std::string& namespaceName,
+    Statement* statement
+) {
+    Library& library =
+        *libraries.at(namespaceName);
+
+    if (
+        auto* function =
+        dynamic_cast<FunctionDeclaration*>(
+            statement
+            )
+        ) {
+        library.functions[
+            function->name
+        ] = function;
+
+        return;
+    }
+
+    if (
+        auto* variable =
+        dynamic_cast<VariableDeclaration*>(
+            statement
+            )
+        ) {
+        library.variables[
+            variable->name
+        ] = variable;
+
+        return;
+    }
+
+    throw std::runtime_error(
+        "Invalid statement in .llib"
     );
 }
 
@@ -197,12 +326,6 @@ void Interpreter::executeBlock(
 void Interpreter::executeDisplay(
     DisplayStatement* statement
 ) {
-    if (!statement) {
-        throw std::runtime_error(
-            "Display statement is null"
-        );
-    }
-
     Value value =
         evaluateExpression(
             statement->expression.get()
@@ -223,12 +346,6 @@ void Interpreter::executeDisplay(
 void Interpreter::executeVariableDeclaration(
     VariableDeclaration* statement
 ) {
-    if (!statement) {
-        throw std::runtime_error(
-            "Variable declaration is null"
-        );
-    }
-
     if (
         variables.find(
             statement->name
@@ -248,7 +365,7 @@ void Interpreter::executeVariableDeclaration(
     variables[
         statement->name
     ] = Variable{
-        value,
+        std::move(value),
         statement->isConst
     };
 }
@@ -256,12 +373,6 @@ void Interpreter::executeVariableDeclaration(
 void Interpreter::executeAssignment(
     AssignmentStatement* statement
 ) {
-    if (!statement) {
-        throw std::runtime_error(
-            "Assignment statement is null"
-        );
-    }
-
     auto it =
         variables.find(
             statement->name
@@ -283,24 +394,15 @@ void Interpreter::executeAssignment(
         );
     }
 
-    Value value =
+    it->second.value =
         evaluateExpression(
             statement->value.get()
         );
-
-    it->second.value =
-        std::move(value);
 }
 
 void Interpreter::executeIf(
     IfStatement* statement
 ) {
-    if (!statement) {
-        throw std::runtime_error(
-            "If statement is null"
-        );
-    }
-
     Value condition =
         evaluateExpression(
             statement->condition.get()
@@ -317,41 +419,25 @@ void Interpreter::executeIf(
     }
 
     if (
-        std::get<bool>(
-            condition
-        )
+        std::get<bool>(condition)
         ) {
-        executeBlock(
-            statement->body
-        );
+        executeBlock(statement->body);
     }
-    else if (
-        !statement->elseBody.empty()
-        ) {
-        executeBlock(
-            statement->elseBody
-        );
+    else {
+        executeBlock(statement->elseBody);
     }
 }
 
 void Interpreter::executeRepeat(
     RepeatStatement* statement
 ) {
-    if (!statement) {
-        throw std::runtime_error(
-            "Repeat statement is null"
-        );
-    }
-
-    Value countValue =
+    Value value =
         evaluateExpression(
             statement->count.get()
         );
 
     if (
-        !std::holds_alternative<int>(
-            countValue
-        )
+        !std::holds_alternative<int>(value)
         ) {
         throw std::runtime_error(
             "Repeat count must be a number"
@@ -359,9 +445,7 @@ void Interpreter::executeRepeat(
     }
 
     int count =
-        std::get<int>(
-            countValue
-        );
+        std::get<int>(value);
 
     if (count < 0) {
         throw std::runtime_error(
@@ -369,26 +453,14 @@ void Interpreter::executeRepeat(
         );
     }
 
-    for (
-        int i = 0;
-        i < count;
-        i++
-        ) {
-        executeBlock(
-            statement->body
-        );
+    for (int i = 0; i < count; i++) {
+        executeBlock(statement->body);
     }
 }
 
 void Interpreter::executeFunctionDeclaration(
     FunctionDeclaration* statement
 ) {
-    if (!statement) {
-        throw std::runtime_error(
-            "Function declaration is null"
-        );
-    }
-
     functions[
         statement->name
     ] = statement;
@@ -397,18 +469,6 @@ void Interpreter::executeFunctionDeclaration(
 void Interpreter::executeReturn(
     ReturnStatement* statement
 ) {
-    if (!statement) {
-        throw std::runtime_error(
-            "Return statement is null"
-        );
-    }
-
-    if (!statement->value) {
-        throw ReturnException(
-            0
-        );
-    }
-
     Value value =
         evaluateExpression(
             statement->value.get()
@@ -429,16 +489,26 @@ Value Interpreter::evaluateExpression(
     }
 
     if (
-        auto number =
+        auto* number =
         dynamic_cast<NumberLiteral*>(
             expression
             )
         ) {
-        return number->value;
+        const std::string& text =
+            number->value;
+
+        if (
+            text.find('.') !=
+            std::string::npos
+            ) {
+            return std::stod(text);
+        }
+
+        return std::stoi(text);
     }
 
     if (
-        auto stringLiteral =
+        auto* stringLiteral =
         dynamic_cast<StringLiteral*>(
             expression
             )
@@ -447,7 +517,7 @@ Value Interpreter::evaluateExpression(
     }
 
     if (
-        auto boolean =
+        auto* boolean =
         dynamic_cast<BoolLiteral*>(
             expression
             )
@@ -456,22 +526,75 @@ Value Interpreter::evaluateExpression(
     }
 
     if (
-        auto identifier =
+        auto* identifier =
         dynamic_cast<Identifier*>(
             expression
             )
         ) {
-        auto it =
-            variables.find(
-                identifier->name
+        const std::string& name =
+            identifier->name;
+
+        // namespace:variable
+        auto colon =
+            name.find(':');
+
+        if (
+            colon !=
+            std::string::npos
+            ) {
+            std::string namespaceName =
+                name.substr(0, colon);
+
+            std::string variableName =
+                name.substr(colon + 1);
+
+            auto libraryIt =
+                libraries.find(
+                    namespaceName
+                );
+
+            if (
+                libraryIt ==
+                libraries.end()
+                ) {
+                throw std::runtime_error(
+                    "Unknown library: " +
+                    namespaceName
+                );
+            }
+
+            Library& library =
+                *libraryIt->second;
+
+            auto variableIt =
+                library.variables.find(
+                    variableName
+                );
+
+            if (
+                variableIt ==
+                library.variables.end()
+                ) {
+                throw std::runtime_error(
+                    "Undefined library variable: " +
+                    name
+                );
+            }
+
+            return evaluateExpression(
+                variableIt->second->value.get()
             );
+        }
+
+        auto it =
+            variables.find(name);
 
         if (
             it == variables.end()
             ) {
             throw std::runtime_error(
                 "Undefined variable: " +
-                identifier->name
+                name
             );
         }
 
@@ -479,7 +602,7 @@ Value Interpreter::evaluateExpression(
     }
 
     if (
-        auto binary =
+        auto* binary =
         dynamic_cast<BinaryExpression*>(
             expression
             )
@@ -502,14 +625,12 @@ Value Interpreter::evaluateExpression(
     }
 
     if (
-        auto call =
+        auto* call =
         dynamic_cast<CallExpression*>(
             expression
             )
         ) {
-        return executeFunctionCall(
-            call
-        );
+        return executeFunctionCall(call);
     }
 
     throw std::runtime_error(
@@ -524,12 +645,8 @@ Value Interpreter::evaluateBinary(
 ) {
     if (op == "+") {
         if (
-            std::holds_alternative<int>(
-                left
-            ) &&
-            std::holds_alternative<int>(
-                right
-            )
+            std::holds_alternative<int>(left) &&
+            std::holds_alternative<int>(right)
             ) {
             return
                 std::get<int>(left) +
@@ -537,12 +654,39 @@ Value Interpreter::evaluateBinary(
         }
 
         if (
-            std::holds_alternative<std::string>(
-                left
-            ) &&
-            std::holds_alternative<std::string>(
-                right
-            )
+            std::holds_alternative<double>(left) &&
+            std::holds_alternative<double>(right)
+            ) {
+            return
+                std::get<double>(left) +
+                std::get<double>(right);
+        }
+
+        if (
+            std::holds_alternative<int>(left) &&
+            std::holds_alternative<double>(right)
+            ) {
+            return
+                static_cast<double>(
+                    std::get<int>(left)
+                    ) +
+                std::get<double>(right);
+        }
+
+        if (
+            std::holds_alternative<double>(left) &&
+            std::holds_alternative<int>(right)
+            ) {
+            return
+                std::get<double>(left) +
+                static_cast<double>(
+                    std::get<int>(right)
+                    );
+        }
+
+        if (
+            std::holds_alternative<std::string>(left) &&
+            std::holds_alternative<std::string>(right)
             ) {
             return
                 std::get<std::string>(left) +
@@ -559,161 +703,266 @@ Value Interpreter::evaluateBinary(
         op == "*" ||
         op == "/"
         ) {
+        bool leftNumber =
+            std::holds_alternative<int>(left) ||
+            std::holds_alternative<double>(left);
+
+        bool rightNumber =
+            std::holds_alternative<int>(right) ||
+            std::holds_alternative<double>(right);
+
         if (
-            !std::holds_alternative<int>(
-                left
-            ) ||
-            !std::holds_alternative<int>(
-                right
-            )
+            !leftNumber ||
+            !rightNumber
             ) {
             throw std::runtime_error(
                 "Arithmetic operations require numbers"
             );
         }
 
-        int a =
-            std::get<int>(
-                left
-            );
+        bool useDouble =
+            std::holds_alternative<double>(left) ||
+            std::holds_alternative<double>(right);
 
-        int b =
-            std::get<int>(
-                right
-            );
-
-        if (op == "-") {
-            return a - b;
-        }
-
-        if (op == "*") {
-            return a * b;
-        }
-
-        if (op == "/") {
-            if (b == 0) {
-                throw std::runtime_error(
-                    "Division by zero"
+        double a =
+            std::holds_alternative<double>(left)
+            ? std::get<double>(left)
+            : static_cast<double>(
+                std::get<int>(left)
                 );
-            }
 
-            return a / b;
+        double b =
+            std::holds_alternative<double>(right)
+            ? std::get<double>(right)
+            : static_cast<double>(
+                std::get<int>(right)
+                );
+
+        if (
+            op == "/" &&
+            b == 0.0
+            ) {
+            throw std::runtime_error(
+                "Division by zero"
+            );
         }
+
+        double result;
+
+        if (op == "-")
+            result = a - b;
+        else if (op == "*")
+            result = a * b;
+        else
+            result = a / b;
+
+        if (!useDouble) {
+            return static_cast<int>(result);
+        }
+
+        return result;
     }
 
     if (
         op == "more" ||
-        op == "less"
+        op == "less" ||
+        op == ">" ||
+        op == "<" ||
+        op == ">=" ||
+        op == "<="
         ) {
+        bool leftNumber =
+            std::holds_alternative<int>(left) ||
+            std::holds_alternative<double>(left);
+
+        bool rightNumber =
+            std::holds_alternative<int>(right) ||
+            std::holds_alternative<double>(right);
+
         if (
-            !std::holds_alternative<int>(
-                left
-            ) ||
-            !std::holds_alternative<int>(
-                right
-            )
+            !leftNumber ||
+            !rightNumber
             ) {
             throw std::runtime_error(
                 "Comparison requires numbers"
             );
         }
 
-        int a =
-            std::get<int>(
-                left
-            );
+        double a =
+            std::holds_alternative<double>(left)
+            ? std::get<double>(left)
+            : static_cast<double>(
+                std::get<int>(left)
+                );
 
-        int b =
-            std::get<int>(
-                right
-            );
+        double b =
+            std::holds_alternative<double>(right)
+            ? std::get<double>(right)
+            : static_cast<double>(
+                std::get<int>(right)
+                );
 
-        if (op == "more") {
+        if (
+            op == "more" ||
+            op == ">"
+            ) {
             return a > b;
         }
 
-        return a < b;
+        if (op == "less" || op == "<") {
+            return a < b;
+        }
+
+        if (op == ">=") {
+            return a >= b;
+        }
+
+        return a <= b;
     }
 
     if (
         op == "eq" ||
-        op == "not"
+        op == "==" ||
+        op == "!="
         ) {
-        if (
-            left.index() !=
-            right.index()
-            ) {
-            return op == "not";
-        }
-
         bool equal = false;
 
+        bool leftNumber =
+            std::holds_alternative<int>(left) ||
+            std::holds_alternative<double>(left);
+
+        bool rightNumber =
+            std::holds_alternative<int>(right) ||
+            std::holds_alternative<double>(right);
+
         if (
-            std::holds_alternative<int>(
-                left
-            )
+            leftNumber &&
+            rightNumber
             ) {
-            equal =
-                std::get<int>(left) ==
-                std::get<int>(right);
+            double a =
+                std::holds_alternative<double>(left)
+                ? std::get<double>(left)
+                : static_cast<double>(
+                    std::get<int>(left)
+                    );
+
+            double b =
+                std::holds_alternative<double>(right)
+                ? std::get<double>(right)
+                : static_cast<double>(
+                    std::get<int>(right)
+                    );
+
+            equal = a == b;
         }
         else if (
-            std::holds_alternative<std::string>(
-                left
-            )
+            left.index() ==
+            right.index()
             ) {
-            equal =
-                std::get<std::string>(left) ==
-                std::get<std::string>(right);
-        }
-        else if (
-            std::holds_alternative<bool>(
-                left
-            )
-            ) {
-            equal =
-                std::get<bool>(left) ==
-                std::get<bool>(right);
+            if (
+                std::holds_alternative<std::string>(left)
+                ) {
+                equal =
+                    std::get<std::string>(left) ==
+                    std::get<std::string>(right);
+            }
+            else if (
+                std::holds_alternative<bool>(left)
+                ) {
+                equal =
+                    std::get<bool>(left) ==
+                    std::get<bool>(right);
+            }
         }
 
-        if (op == "eq") {
-            return equal;
+        if (op == "!=") {
+            return !equal;
         }
 
-        return !equal;
+        return equal;
     }
 
     throw std::runtime_error(
-        "Unknown operator: " +
-        op
+        "Unknown operator: " + op
     );
 }
 
 Value Interpreter::executeFunctionCall(
     CallExpression* call
 ) {
-    if (!call) {
-        throw std::runtime_error(
-            "Call expression is null"
-        );
-    }
-
-    auto it =
-        functions.find(
-            call->name
-        );
-
-    if (
-        it == functions.end()
-        ) {
-        throw std::runtime_error(
-            "Undefined function: " +
-            call->name
-        );
-    }
+    const std::string& name =
+        call->name;
 
     FunctionDeclaration* function =
-        it->second;
+        nullptr;
+
+    // namespace:function
+    auto colon =
+        name.find(':');
+
+    if (
+        colon !=
+        std::string::npos
+        ) {
+        std::string namespaceName =
+            name.substr(0, colon);
+
+        std::string functionName =
+            name.substr(colon + 1);
+
+        auto libraryIt =
+            libraries.find(
+                namespaceName
+            );
+
+        if (
+            libraryIt ==
+            libraries.end()
+            ) {
+            throw std::runtime_error(
+                "Unknown library: " +
+                namespaceName
+            );
+        }
+
+        Library& library =
+            *libraryIt->second;
+
+        auto functionIt =
+            library.functions.find(
+                functionName
+            );
+
+        if (
+            functionIt ==
+            library.functions.end()
+            ) {
+            throw std::runtime_error(
+                "Undefined function: " +
+                name
+            );
+        }
+
+        function =
+            functionIt->second;
+    }
+    else {
+
+        auto it =
+            functions.find(name);
+
+        if (
+            it == functions.end()
+            ) {
+            throw std::runtime_error(
+                "Undefined function: " +
+                name
+            );
+        }
+
+        function =
+            it->second;
+    }
 
     if (
         call->arguments.size() !=
@@ -721,7 +970,7 @@ Value Interpreter::executeFunctionCall(
         ) {
         throw std::runtime_error(
             "Argument count mismatch in function: " +
-            call->name
+            name
         );
     }
 
@@ -739,13 +988,12 @@ Value Interpreter::executeFunctionCall(
     }
 
     auto oldVariables =
-        std::move(
-            variables
-        );
+        std::move(variables);
 
     variables.clear();
 
     try {
+
         for (
             size_t i = 0;
             i < function->parameters.size();
@@ -767,17 +1015,19 @@ Value Interpreter::executeFunctionCall(
         const ReturnException& returnValue
         ) {
         variables =
-            std::move(
-                oldVariables
-            );
+            std::move(oldVariables);
 
         return returnValue.value;
     }
+    catch (...) {
+        variables =
+            std::move(oldVariables);
+
+        throw;
+    }
 
     variables =
-        std::move(
-            oldVariables
-        );
+        std::move(oldVariables);
 
     return 0;
 }

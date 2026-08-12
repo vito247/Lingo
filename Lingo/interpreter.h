@@ -1,15 +1,16 @@
 #pragma once
 
-#include <map>
-#include <memory>
 #include <string>
-#include <variant>
 #include <vector>
+#include <memory>
+#include <unordered_map>
+#include <variant>
 
 #include "ast.h"
 
 using Value = std::variant<
     int,
+    double,
     std::string,
     bool
 >;
@@ -17,6 +18,20 @@ using Value = std::variant<
 struct Variable {
     Value value;
     bool isConst;
+};
+
+struct Library {
+    std::unique_ptr<Program> program;
+
+    std::unordered_map<
+        std::string,
+        FunctionDeclaration*
+    > functions;
+
+    std::unordered_map<
+        std::string,
+        VariableDeclaration*
+    > variables;
 };
 
 class Interpreter {
@@ -28,15 +43,24 @@ public:
     );
 
 private:
-    std::map<
+    std::unordered_map<
         std::string,
         Variable
     > variables;
 
-    std::map<
+    std::unordered_map<
         std::string,
         FunctionDeclaration*
     > functions;
+
+    std::unordered_map<
+        std::string,
+        std::unique_ptr<Library>
+    > libraries;
+
+    void executeStatement(
+        Statement* statement
+    );
 
     void executeBlock(
         const std::vector<
@@ -44,8 +68,8 @@ private:
         >& statements
     );
 
-    void executeStatement(
-        Statement* statement
+    void executeDisplay(
+        DisplayStatement* statement
     );
 
     void executeVariableDeclaration(
@@ -54,10 +78,6 @@ private:
 
     void executeAssignment(
         AssignmentStatement* statement
-    );
-
-    void executeDisplay(
-        DisplayStatement* statement
     );
 
     void executeIf(
@@ -76,8 +96,18 @@ private:
         ReturnStatement* statement
     );
 
-    Value executeFunctionCall(
-        CallExpression* call
+    void executeImport(
+        ImportStatement* statement
+    );
+
+    void loadLibrary(
+        const std::string& namespaceName,
+        const std::string& libraryPath
+    );
+
+    void registerLibraryStatement(
+        const std::string& namespaceName,
+        Statement* statement
     );
 
     Value evaluateExpression(
@@ -88,5 +118,9 @@ private:
         const Value& left,
         const Value& right,
         const std::string& op
+    );
+
+    Value executeFunctionCall(
+        CallExpression* call
     );
 };
