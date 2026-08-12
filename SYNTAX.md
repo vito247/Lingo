@@ -1,5 +1,8 @@
 # Lingo Syntax 
 
+## Import
+```Import [Library Path] (As) [(Namespace)]```: Imports a library. If ```As [Namespace]``` is omitted, the library's file name is used as the namespace.
+
 ## Display  
 ```Display [Object]``` : Displays an object to console.  
 
