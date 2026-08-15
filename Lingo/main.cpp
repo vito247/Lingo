@@ -13,8 +13,9 @@
 #include "interpreter.h"
 
 namespace fs = std::filesystem;
+const std::string VERSION = "0.2.1";
 
-int command();
+std::string command();
 bool addToPath(const std::string& path);
 std::string getExecutableDirectory();
 std::vector<std::string> parseArguments(
@@ -23,15 +24,29 @@ std::vector<std::string> parseArguments(
 
 int main() {
     while (true) {
-        int result = command();
+        std::string result = command();
 
-        if (result == 0) {
+        if (result == "exit") {
             return 0;
         }
+		else if (result == "error") {
+			continue;
+		}
+		else if (result == "success") {
+			std::cout << "Successfully completed command." << std::endl;
+			continue;
+		}
+		else if (result == "info") {
+			continue;
+		}
+		else {
+			std::cerr << "Unknown result: " << result << std::endl;
+            return 1;
+		}
     }
 }
 
-int command() {
+std::string command() {
     std::string cmd;
 
     std::cout << ">> ";
@@ -42,10 +57,10 @@ int command() {
 
     if (args.empty()) {
         std::cout << "Command or Arguments cannot be empty." << std::endl;
-        return 1;
+        return "error";
     }
     if (args[0] == "exit") {
-        return 0;
+        return "exit";
     }
 
     if (args[0] == "help") {
@@ -64,20 +79,20 @@ int command() {
             std::cout << line << '\n';
         }
 
-        return 1;
+        return "info";
     }
 	if (args[0] == "clear") {
 		system("cls");
-		return 1;
+		return "success";
 	}
 	if (args[0] == "version") {
-		std::cout << "Lingo CLI Interpreter Version 0.1\n" << "Github: https://github.com/vito247/Lingo\n";
-		return 1;
+		std::cout << "Lingo CLI Interpreter Version " << VERSION << "\n" << "Github: https://github.com/vito247/Lingo\n";
+		return "info";
 	}
 	if (args[0] == "new") {
 		if (args.size() < 3) {
 			std::cerr << "Error: Not enough arguments for 'new' command." << '\n' << "Usage: new <directory> <filename>\n";
-			return 1;
+			return "error";
 		}
 		fs::path dir(args[1]);
 		fs::path filename(args[2]);
@@ -89,36 +104,36 @@ int command() {
 		
 		if (!fs::exists(dir)) {
 			std::cerr << "Error: Directory does not exist: " << dir << '\n';
-			return 1;
+			return "error";
 		}
 
 		if (!fs::is_directory(dir)) {
 			std::cerr << "Error: Path is not a directory: " << dir << '\n';
-			return 1;
+			return "error";
 		}
 		fs::path filePath = dir / filename;
 
         if (fs::exists(filePath)) {
             std::cerr << "Error: File already exists: " << filePath << '\n';
-            return 1;
+            return "error";
         }
 		std::ofstream file(filePath);
 		if (!file) {
 			std::cerr << "Error: Could not create lingo file: " << filePath << '\n';
-			return 1;
+			return "error";
 		}
 		file.close();
 		std::cout << "Successfully created new lingo file: " << fs::absolute(filePath) << '\n';
-		return 1;
+		return "success";
 	}
     if (args[0] == "register") {
         std::string executableDir = getExecutableDirectory();
         if (!addToPath(executableDir)) {
             std::cerr << "Error: Failed to register program to PATH.\n";
-            return 1;
+            return "error";
         }
 		std::cout << "Successfully registered program to PATH.\n" << "Please restart your terminal to apply the changes." << '\n';
-        return 1;
+        return "success";
     }
     if (args[0] == "run") {
         try {
@@ -126,7 +141,7 @@ int command() {
                 std::cerr
                     << "Error: Not enough arguments for 'run' command." << '\n' << "Usage: run <file path>\n";
 
-                return 1;
+                return "error";
             }
 
             fs::path filePath(args[1]);
@@ -136,7 +151,7 @@ int command() {
                     << "Error: Unsupported file extension: "
                     << filePath
                     << '\n';
-                return 1;
+                return "error";
             }
 
             std::ifstream file(filePath);
@@ -147,7 +162,7 @@ int command() {
                     << filePath
                     << '\n';
 
-                return 1;
+                return "error";
             }
 
             std::string source(
@@ -171,20 +186,20 @@ int command() {
                 ast.get()
             );
 
-            return 1;
+            return "success";
         }
 		catch (const std::exception& e) {
 			std::cerr
 				<< "Error: "
 				<< e.what()
 				<< '\n';
-			return 1;
+			return "error";
 		}
 		catch (...) {
 			std::cerr
 				<< "Error: An unknown error occurred while running the lingo file."
 				<< '\n';
-			return 1;
+			return "error";
 		}
     }
 
@@ -193,7 +208,7 @@ int command() {
         << args[0]
         << '\n';
 
-    return 1;
+    return "error";
 }
 std::vector<std::string> parseArguments(
     const std::string& input
