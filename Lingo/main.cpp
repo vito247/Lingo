@@ -12,238 +12,166 @@
 #include "ast.h"
 #include "interpreter.h"
 
+constexpr std::string_view VERSION = "0.3.0";
 namespace fs = std::filesystem;
-const std::string VERSION = "0.2.1";
 
 std::string command();
 bool addToPath(const std::string& path);
-std::string getExecutableDirectory();
+std::string getdir();
 std::vector<std::string> parseArguments(
     const std::string& input
 );
 
-int main() {
-    while (true) {
-        std::string result = command();
 
-        if (result == "exit") {
-            return 0;
-        }
-		else if (result == "error") {
-			continue;
-		}
-		else if (result == "success") {
-			std::cout << "Successfully completed command." << std::endl;
-			continue;
-		}
-		else if (result == "info") {
-			continue;
-		}
-		else {
-			std::cerr << "Unknown result: " << result << std::endl;
-            return 1;
-		}
-    }
-}
+int main(int argc, char* argv[]) {
+	std::vector<std::string> args;
+	for (int i = 1; i < argc; i++) {
+		args.push_back(argv[i]);
+	}
+	if (args.empty()) {
+		std::cerr << "Error: Arguments cannot be empty.\n";
+		return 1;
+	}
+	const std::string& cmd = args[0];
 
-std::string command() {
-    std::string cmd;
-
-    std::cout << ">> ";
-    std::getline(std::cin, cmd);
-
-    std::vector<std::string> args =
-        parseArguments(cmd);
-
-    if (args.empty()) {
-        std::cout << "Command or Arguments cannot be empty." << std::endl;
-        return "error";
-    }
-    if (args[0] == "exit") {
-        return "exit";
-    }
-
-    if (args[0] == "help") {
-        std::string msg[] = {
-            "Available commands:",
-            "help : Show this help message",
-			"clear : Clear the console",
+	if (cmd == "help") {
+		std::string msg[] = {
+			"Available commands:",
+			"help : Show this help message",
 			"version : Show the version of the interpreter",
 			"new <directory> <filename> : Create a new lingo file in the specified directory",
-            "register : Register this program to PATH, only supported on Windows",
-            "run <file path> : Run a script from a file",
-            "exit : Exit the interpreter"
-        };
-
-        for (const auto& line : msg) {
-            std::cout << line << '\n';
-        }
-
-        return "info";
-    }
-	if (args[0] == "clear") {
-		system("cls");
-		return "success";
-	}
-	if (args[0] == "version") {
-		std::cout << "Lingo CLI Interpreter Version " << VERSION << "\n" << "Github: https://github.com/vito247/Lingo\n";
-		return "info";
-	}
-	if (args[0] == "new") {
-		if (args.size() < 3) {
-			std::cerr << "Error: Not enough arguments for 'new' command." << '\n' << "Usage: new <directory> <filename>\n";
-			return "error";
+			"register : Register this program to PATH, only supported on Windows",
+			"run <file path> : Run a script from a file",
+		};
+		for (const auto& line : msg) {
+			std::cout << line << '\n';
 		}
+		return 0;
+	}
+	else if (cmd == "version") {
+		std::cout
+			<< "Lingo CLI Interpreter Version "
+			<< VERSION << '\n'
+			<< "Github: https://github.com/vito247/Lingo\n";
+		return 0;
+	}
+	else if (cmd == "new") {
+		if (args.size() < 3) {
+			std::cerr
+				<< "Error: Not enough arguments for 'new' command.\n"
+				<< "Usage: new <directory> <filename>\n";
+			return 1;
+		}
+
 		fs::path dir(args[1]);
 		fs::path filename(args[2]);
-        
+
 		if (filename.extension() != ".lingo") {
 			filename += ".lingo";
 		}
-
-		
 		if (!fs::exists(dir)) {
-			std::cerr << "Error: Directory does not exist: " << dir << '\n';
-			return "error";
+			std::cerr
+				<< "Error: Directory does not exist: "
+				<< dir << '\n';
+			return 1;
 		}
-
 		if (!fs::is_directory(dir)) {
-			std::cerr << "Error: Path is not a directory: " << dir << '\n';
-			return "error";
+			std::cerr
+				<< "Error: Path is not a directory: "
+				<< dir << '\n';
+
+			return 1;
 		}
 		fs::path filePath = dir / filename;
+		if (fs::exists(filePath)) {
+			std::cerr
+				<< "Error: File already exists: "
+				<< filePath << '\n';
 
-        if (fs::exists(filePath)) {
-            std::cerr << "Error: File already exists: " << filePath << '\n';
-            return "error";
-        }
+			return 1;
+		}
 		std::ofstream file(filePath);
 		if (!file) {
-			std::cerr << "Error: Could not create lingo file: " << filePath << '\n';
-			return "error";
+			std::cerr
+				<< "Error: Could not create lingo file: "
+				<< filePath << '\n';
+
+			return 1;
 		}
 		file.close();
-		std::cout << "Successfully created new lingo file: " << fs::absolute(filePath) << '\n';
-		return "success";
+		std::cout
+			<< "Successfully created new lingo file: "
+			<< fs::absolute(filePath) << '\n';
+		return 0;
 	}
-    if (args[0] == "register") {
-        std::string executableDir = getExecutableDirectory();
-        if (!addToPath(executableDir)) {
-            std::cerr << "Error: Failed to register program to PATH.\n";
-            return "error";
-        }
-		std::cout << "Successfully registered program to PATH.\n" << "Please restart your terminal to apply the changes." << '\n';
-        return "success";
-    }
-    if (args[0] == "run") {
-        try {
-            if (args.size() < 2) {
-                std::cerr
-                    << "Error: Not enough arguments for 'run' command." << '\n' << "Usage: run <file path>\n";
+	else if (cmd == "register") {
+		std::string dir = getdir();
+		if (dir.empty() || !addToPath(dir)) {
+			std::cerr
+				<< "Error: Failed to register program to PATH.\n";
+			return 1;
+		}
+		std::cout
+			<< "Successfully registered program to PATH.\n"
+			<< "Please restart your terminal to apply the changes.\n";
+		return 0;
+	}
+	else if (cmd == "run") {
+		if (args.size() < 2) {
+			std::cerr
+				<< "Error: Not enough arguments for 'run' command.\n"
+				<< "Usage: run <file path>\n";
+			return 1;
+		}
+		try {
+			fs::path filePath(args[1]);
+			if (filePath.extension() != ".lingo") {
+				std::cerr
+					<< "Error: Unsupported file extension: "
+					<< filePath << '\n';
+				return 1;
+			}
+			std::ifstream file(filePath);
+			if (!file.is_open()) {
+				std::cerr
+					<< "Error: Could not open file: "
+					<< filePath << '\n';
+				return 1;
+			}
+			std::string source(
+				(std::istreambuf_iterator<char>(file)),
+				std::istreambuf_iterator<char>()
+			);
 
-                return "error";
-            }
+			Lexer lexer(source);
+			auto tokens = lexer.tokenize();
 
-            fs::path filePath(args[1]);
+			Parser parser(tokens);
+			auto ast = parser.parse();
 
-            if (filePath.extension() != ".lingo") {
-                std::cerr
-                    << "Error: Unsupported file extension: "
-                    << filePath
-                    << '\n';
-                return "error";
-            }
+			Interpreter interpreter;
 
-            std::ifstream file(filePath);
+			interpreter.execute(ast.get());
 
-            if (!file.is_open()) {
-                std::cerr
-                    << "Error: Could not open file: "
-                    << filePath
-                    << '\n';
-
-                return "error";
-            }
-
-            std::string source(
-                (std::istreambuf_iterator<char>(file)),
-                std::istreambuf_iterator<char>()
-            );
-
-            Lexer lexer(source);
-
-            auto tokens =
-                lexer.tokenize();
-
-            Parser parser(tokens);
-
-            auto ast =
-                parser.parse();
-
-            Interpreter interpreter;
-
-            interpreter.execute(
-                ast.get()
-            );
-
-            return "success";
-        }
+			return 0;
+		}
 		catch (const std::exception& e) {
 			std::cerr
 				<< "Error: "
-				<< e.what()
-				<< '\n';
-			return "error";
+				<< e.what() << '\n';
+			return 1;
 		}
 		catch (...) {
 			std::cerr
-				<< "Error: An unknown error occurred while running the lingo file."
-				<< '\n';
-			return "error";
+				<< "Error: An unknown error occurred while running the lingo file.\n";
+			return 1;
 		}
-    }
-
-    std::cerr
-        << "Unknown command: "
-        << args[0]
-        << '\n';
-
-    return "error";
+	}
+	std::cerr << "Unknown command: " << cmd << '\n';
+	return 1;
 }
-std::vector<std::string> parseArguments(
-    const std::string& input
-) {
-    std::vector<std::string> args;
-    std::string current;
 
-    bool inQuotes = false;
-
-    for (char c : input) {
-        if (c == '"') {
-            inQuotes = !inQuotes;
-            continue;
-        }
-
-        if (std::isspace(
-            static_cast<unsigned char>(c)
-        ) && !inQuotes) {
-            if (!current.empty()) {
-                args.push_back(current);
-                current.clear();
-            }
-        }
-        else {
-            current += c;
-        }
-    }
-
-    if (!current.empty()) {
-        args.push_back(current);
-    }
-
-    return args;
-}
-std::string getExecutableDirectory() {
+std::string getdir() {
     char buffer[MAX_PATH];
 
     DWORD length = GetModuleFileNameA(
