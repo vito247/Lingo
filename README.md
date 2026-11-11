@@ -19,7 +19,7 @@ CLI Commands:
 - lingo version : Show the version of the interpreter  
 - lingo new [directory] [filename] : Create a new lingo file in the dirctory  
 - lingo register : Register this program to PATH, only supported on Windows  
-- lingo run [file path] : Run a lingo file   
+- lingo run [file path] [--debug]: Run a lingo file   
 
 ## Syntax
 Syntax is in SYNTAX.md
