@@ -15,12 +15,11 @@ Supported Syntax:
 - Remarks  
   
 CLI Commands:  
-- help : Show help message  
-- clear : Clear the console  
-- new [directory] [filename] : Create a new lingo file in the dirctory  
-- register : Register this program to PATH, only supported on Windows  
-- run [file path] : Run a lingo file   
-- exit : Exit the interpreter  
+- lingo help : Show help message  
+- lingo version : Show the version of the interpreter  
+- lingo new [directory] [filename] : Create a new lingo file in the dirctory  
+- lingo register : Register this program to PATH, only supported on Windows  
+- lingo run [file path] : Run a lingo file   
 
 ## Syntax
 Syntax is in SYNTAX.md

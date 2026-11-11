@@ -47,5 +47,8 @@
     <ClInclude Include="interpreter.h">
       <Filter>리소스 파일</Filter>
     </ClInclude>
+    <ClInclude Include="ast_printer.h">
+      <Filter>리소스 파일</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

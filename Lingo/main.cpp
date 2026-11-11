@@ -6,21 +6,19 @@
 #include <cctype>
 #include <Windows.h>
 #include <filesystem>
+#include <string_view>
 
 #include "lexer.h"
 #include "parser.h"
 #include "ast.h"
+#include "ast_printer.h"
 #include "interpreter.h"
 
 constexpr std::string_view VERSION = "0.3.0";
 namespace fs = std::filesystem;
 
-std::string command();
 bool addToPath(const std::string& path);
 std::string getdir();
-std::vector<std::string> parseArguments(
-    const std::string& input
-);
 
 
 int main(int argc, char* argv[]) {
@@ -41,7 +39,7 @@ int main(int argc, char* argv[]) {
 			"version : Show the version of the interpreter",
 			"new <directory> <filename> : Create a new lingo file in the specified directory",
 			"register : Register this program to PATH, only supported on Windows",
-			"run <file path> : Run a script from a file",
+			"run <file path> [--debug]: Run a script from a file",
 		};
 		for (const auto& line : msg) {
 			std::cout << line << '\n';
@@ -116,42 +114,85 @@ int main(int argc, char* argv[]) {
 			<< "Please restart your terminal to apply the changes.\n";
 		return 0;
 	}
+
 	else if (cmd == "run") {
 		if (args.size() < 2) {
 			std::cerr
 				<< "Error: Not enough arguments for 'run' command.\n"
-				<< "Usage: run <file path>\n";
+				<< "Usage: run <file path> [--debug]\n";
 			return 1;
 		}
+
+		bool debugMode = false;
+
+		if (args.size() >= 3) {
+			if (args[2] == "--debug") {
+				debugMode = true;
+			}
+			else {
+				std::cerr
+					<< "Error: Unknown option: "
+					<< args[2] << '\n';
+				return 1;
+			}
+		}
+
 		try {
 			fs::path filePath(args[1]);
+
 			if (filePath.extension() != ".lingo") {
 				std::cerr
 					<< "Error: Unsupported file extension: "
 					<< filePath << '\n';
 				return 1;
 			}
+
 			std::ifstream file(filePath);
+
 			if (!file.is_open()) {
 				std::cerr
 					<< "Error: Could not open file: "
 					<< filePath << '\n';
 				return 1;
 			}
+
 			std::string source(
 				(std::istreambuf_iterator<char>(file)),
 				std::istreambuf_iterator<char>()
 			);
 
+			if (debugMode) {
+				std::cout << "[Lingo Debugger]\n\n";
+				std::cout << "[Lexer] Tokenizing...\n";
+			}
+
 			Lexer lexer(source);
 			auto tokens = lexer.tokenize();
+
+			if (debugMode) {
+				std::cout << "[Lexer] Completed.\n";
+				std::cout << "[Parser] Parsing...\n";
+			}
 
 			Parser parser(tokens);
 			auto ast = parser.parse();
 
-			Interpreter interpreter;
+			if (debugMode) {
+				std::cout << "[Parser] Completed.\n";
+				std::cout << "[AST]\n";
 
+				ASTPrinter printer;
+				printer.print(ast.get());
+
+				std::cout << "\n[Interpreter] Executing...\n";
+			}
+
+			Interpreter interpreter;
 			interpreter.execute(ast.get());
+
+			if (debugMode) {
+				std::cout << "\n[Debug] Execution completed.\n";
+			}
 
 			return 0;
 		}
@@ -167,6 +208,7 @@ int main(int argc, char* argv[]) {
 			return 1;
 		}
 	}
+
 	std::cerr << "Unknown command: " << cmd << '\n';
 	return 1;
 }
