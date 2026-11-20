@@ -17,14 +17,14 @@ If [condition],
 Do  
     [code]  
 ```
-The "Do" block is executed when the [condition] is true.  
+The `Do` block is executed when the [condition] is true.  
   
 ```
 Else,  
 Do  
     [code]  
 ```
-The "Do" block is executed when the [condition] is false. Required "If".  
+The `Do` block is executed when the [condition] is false. Required "If".  
 
 ## Repeat
 ```
@@ -32,7 +32,7 @@ Repeat [number]
 Do  
     [code]
  ```  
-The "Do" block is executed [number] times.
+The `Do` block is executed [number] times.
 
 ## Function
 ```
@@ -44,9 +44,9 @@ Do
     Throw [Object]
 ```  
 Creates function, this function can call with its name.  
-"Input" block, set parameters of this function.  
-The "Do" block is executed when this function has called.  
-The "Throw" code returns value of this function, type of throwing value must match the [Return Type] of function.  
+`Input` block, set parameters of this function.  
+The `Do` block is executed when this function has called.  
+The `Throw` code returns value of this function, type of throwing value must match the [Return Type] of function.  
 
 ## Examples  
 ```
