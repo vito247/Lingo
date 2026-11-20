@@ -289,46 +289,48 @@ std::string Parser::parseNamespacedName() {
     return result;
 }
 
+
 std::unique_ptr<Statement>
 Parser::parseIf() {
-    expect(
-        TokensType::If,
-        "Expected If"
-    );
+    int blockIndent = current().indent;
 
-    auto condition =
-        parseExpression();
+    expect(TokensType::If, "Expected If");
 
-    auto statement =
-        std::make_unique<IfStatement>(
-            std::move(condition)
-        );
+    auto condition = parseExpression();
 
+    match(TokensType::Comma);
     skipNewLines();
 
+    expect(TokensType::Do, "Expected Do after If condition");
+    skipNewLines();
+
+    auto statement = std::make_unique<IfStatement>(
+        std::move(condition)
+    );
+
+    // If body
     while (
         !check(TokensType::Else) &&
         !check(TokensType::EndOfFile) &&
-        current().indent > 0
-    ) {
-        statement->body.push_back(
-            parseStatement()
-        );
-
+        current().indent > blockIndent
+        ) {
+        statement->body.push_back(parseStatement());
         skipNewLines();
     }
 
+    // Else body
     if (match(TokensType::Else)) {
+        match(TokensType::Comma);
+        skipNewLines();
+
+        expect(TokensType::Do, "Expected Do after Else");
         skipNewLines();
 
         while (
             !check(TokensType::EndOfFile) &&
-            current().indent > 0
-        ) {
-            statement->elseBody.push_back(
-                parseStatement()
-            );
-
+            current().indent > blockIndent
+            ) {
+            statement->elseBody.push_back(parseStatement());
             skipNewLines();
         }
     }
@@ -336,85 +338,75 @@ Parser::parseIf() {
     return statement;
 }
 
+
 std::unique_ptr<Statement>
 Parser::parseRepeat() {
-    expect(
-        TokensType::Repeat,
-        "Expected Repeat"
-    );
+    int blockIndent = current().indent;
 
-    auto count =
-        parseExpression();
+    expect(TokensType::Repeat, "Expected Repeat");
 
-    auto statement =
-        std::make_unique<RepeatStatement>(
-            std::move(count)
-        );
+    auto count = parseExpression();
 
+    match(TokensType::Comma);
     skipNewLines();
+
+    expect(TokensType::Do, "Expected Do after Repeat count");
+    skipNewLines();
+
+    auto statement = std::make_unique<RepeatStatement>(
+        std::move(count)
+    );
 
     while (
         !check(TokensType::EndOfFile) &&
-        current().indent > 0
-    ) {
-        statement->body.push_back(
-            parseStatement()
-        );
-
+        current().indent > blockIndent
+        ) {
+        statement->body.push_back(parseStatement());
         skipNewLines();
     }
 
     return statement;
 }
 
+
 std::unique_ptr<Statement>
 Parser::parseFunction() {
-    expect(
-        TokensType::Function,
-        "Expected Function"
+    int blockIndent = current().indent;
+
+    expect(TokensType::Function, "Expected Function");
+
+    const Token& name = expect(
+        TokensType::Identifier,
+        "Expected function name"
     );
 
-    const Token& name =
-        expect(
-            TokensType::Identifier,
-            "Expected function name"
-        );
+    auto function = std::make_unique<FunctionDeclaration>(
+        name.value
+    );
 
-    auto function =
-        std::make_unique<FunctionDeclaration>(
-            name.value
-        );
-
-    // Function add -> num
     if (match(TokensType::Arrow)) {
-        function->returnType =
-            parseValueType();
+        function->returnType = parseValueType();
     }
 
     skipNewLines();
 
-    // Input
+    // Input parameters
     if (match(TokensType::Input)) {
         skipNewLines();
 
         while (
+            !check(TokensType::Do) &&
             !check(TokensType::EndOfFile) &&
-            current().indent > 0 &&
-            !check(TokensType::Do)
+            current().indent > blockIndent
             ) {
-            expect(
-                TokensType::Var,
-                "Expected Var in Input"
+            expect(TokensType::Var, "Expected Var in Input");
+
+            ValueType type = parseValueType();
+
+            const Token& parameterName = expect(
+                TokensType::Identifier,
+                "Expected parameter name"
             );
-
-            ValueType type =
-                parseValueType();
-
-            const Token& parameterName =
-                expect(
-                    TokensType::Identifier,
-                    "Expected parameter name"
-                );
 
             function->parameters.emplace_back(
                 type,
@@ -425,24 +417,22 @@ Parser::parseFunction() {
         }
     }
 
-    // Do
-    if (match(TokensType::Do)) {
-        skipNewLines();
-    }
+    // Function body
+    expect(TokensType::Do, "Expected Do in Function");
+    skipNewLines();
 
     while (
         !check(TokensType::EndOfFile) &&
-        current().indent > 0
+        current().indent > blockIndent
         ) {
-        function->body.push_back(
-            parseStatement()
-        );
-
+        function->body.push_back(parseStatement());
         skipNewLines();
     }
 
     return function;
 }
+
+
 
 std::unique_ptr<Statement>
 Parser::parseReturn() {
